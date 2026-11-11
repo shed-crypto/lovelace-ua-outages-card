@@ -1,0 +1,31 @@
+name: Bug Report
+description: Report a rendering, discovery, or behavior bug in UA Outages Card
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: input
+    id: card_version
+    attributes:
+      label: Card version
+      placeholder: e.g., 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      placeholder: e.g., 2026.11.1
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Card configuration (redact sensitive details)
+      render: yaml
+

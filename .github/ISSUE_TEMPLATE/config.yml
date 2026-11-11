@@ -1,0 +1,6 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Backend integration issues
+    url: https://github.com/shed-crypto/ha-ua-outages/issues
+    about: Report backend DTEK scraping or entity state issues in ha-ua-outages
+

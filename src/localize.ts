@@ -1,0 +1,389 @@
+import { CardLanguage, SlotState, SupportedLanguage } from "./types";
+
+export interface TranslationStrings {
+  cardDefaultTitle: string;
+  weeklyDefaultTitle: string;
+  groupPrefix: string;
+  today: string;
+  tomorrow: string;
+  hoursShort: string;
+  minShort: string;
+  hourUnit: string;
+  noEntity: string;
+  noSchedule: string;
+  noTomorrow: string;
+  noWeeklyData: string;
+  powerOn: string;
+  powerOnNoOutages: string;
+  nextOutageAt: string;
+  possibleOutageAt: string;
+  outageUntil: string;
+  outageOngoing: string;
+  inPrefix: string;
+  remainingSuffix: string;
+  durationLabel: string;
+  expectedRestoration: string;
+  batteryLabel: string;
+  hoursHeader: string;
+  daysHeader: string;
+  todayTag: string;
+  nowTag: string;
+  slotOn: string;
+  slotOff: string;
+  slotMaybe: string;
+  legOn: string;
+  legOff: string;
+  legMaybe: string;
+  legFirst: string;
+  legSecond: string;
+  connOk: string;
+  connMirror: string;
+  connOffline: string;
+  staleSuffix: string;
+  addressKinds: Record<string, string>;
+  weekdays: readonly [string, string, string, string, string, string, string];
+  editor: {
+    entity: string;
+    title: string;
+    style: string;
+    styleDtek: string;
+    styleModern: string;
+    theme: string;
+    themeAuto: string;
+    themeDtekLight: string;
+    themeDtekDark: string;
+    layout: string;
+    layoutFull: string;
+    layoutCompact: string;
+    layoutKiosk: string;
+    modernGrid: string;
+    rowOrder: string;
+    rowOrderMonSun: string;
+    rowOrderRolling: string;
+    language: string;
+    langAuto: string;
+    batteryEntity: string;
+    showHeader: string;
+    showCountdown: string;
+    showTomorrow: string;
+    showIntervalsText: string;
+    showLegend: string;
+    advancedOverrides: string;
+    calendarEntity: string;
+    todayEntity: string;
+    tomorrowEntity: string;
+    groupEntity: string;
+    nextOutageEntity: string;
+    outageEndEntity: string;
+    scheduledOutageEntity: string;
+    addressStatusEntity: string;
+    restorationEntity: string;
+    connectionEntity: string;
+  };
+}
+
+const UK: TranslationStrings = {
+  cardDefaultTitle: "Графік відключень",
+  weeklyDefaultTitle: "Графік на тиждень",
+  groupPrefix: "Черга",
+  today: "Сьогодні",
+  tomorrow: "Завтра",
+  hoursShort: "год",
+  minShort: "хв",
+  hourUnit: "год",
+  noEntity: "Оберіть сутність інтеграції ua_outages у налаштуваннях картки",
+  noSchedule: "Дані графіка ще не завантажені",
+  noTomorrow: "Графік на завтра ще не опубліковано",
+  noWeeklyData: "Дані тижневого календаря відсутні",
+  powerOn: "Світло є",
+  powerOnNoOutages: "Світло є • Запланованих відключень немає",
+  nextOutageAt: "Наступне о",
+  possibleOutageAt: "Можливе о",
+  outageUntil: "Відключення до",
+  outageOngoing: "Відключення триває",
+  inPrefix: "Через",
+  remainingSuffix: "залишилось",
+  durationLabel: "тривалість",
+  expectedRestoration: "Відновлення ~",
+  batteryLabel: "АКБ",
+  hoursHeader: "Години",
+  daysHeader: "Дні",
+  todayTag: "сьогодні",
+  nowTag: "зараз",
+  slotOn: "Світло є",
+  slotOff: "Світла немає",
+  slotMaybe: "Можливе відключення",
+  legOn: "Світло є",
+  legOff: "Світла немає",
+  legMaybe: "Можливе",
+  legFirst: "Перші 30 хв",
+  legSecond: "Другі 30 хв",
+  connOk: "DTEK",
+  connMirror: "Дзеркало",
+  connOffline: "Офлайн",
+  staleSuffix: "кеш",
+  addressKinds: {
+    emergency: "Аварійне відключення за адресою",
+    planned: "Планові роботи за адресою",
+    stabilization: "Стабілізаційне відключення",
+    other: "Відключення за адресою",
+  },
+  weekdays: ["Понеділок", "Вівторок", "Середа", "Четвер", "П'ятниця", "Субота", "Неділя"],
+  editor: {
+    entity: "Основна сутність (сенсор або календар)",
+    title: "Заголовок картки (необов'язково)",
+    style: "Стиль відображення",
+    styleDtek: "Таблиця ДТЕК (00-01..23-24)",
+    styleModern: "Сучасні плитки",
+    theme: "Колірна тема",
+    themeAuto: "Авто (тема Home Assistant)",
+    themeDtekLight: "ДТЕК Світла",
+    themeDtekDark: "ДТЕК Темна",
+    layout: "Макет",
+    layoutFull: "Повний",
+    layoutCompact: "Компактний",
+    layoutKiosk: "Кіоск (великий шрифт)",
+    modernGrid: "Сітка плиток (сучасний стиль)",
+    rowOrder: "Порядок днів",
+    rowOrderMonSun: "Пн–Нд (тиждень)",
+    rowOrderRolling: "Від сьогодні (7 днів)",
+    language: "Мова картки",
+    langAuto: "Авто (мова HA)",
+    batteryEntity: "Сенсор заряду АКБ (необов'язково)",
+    showHeader: "Показувати шапку",
+    showCountdown: "Показувати живий таймер",
+    showTomorrow: "Показувати завтрашній день",
+    showIntervalsText: "Показувати текстові інтервали",
+    showLegend: "Показувати легенду",
+    advancedOverrides: "Ручне перевизначення сутностей",
+    calendarEntity: "Сутність календаря (calendar.*_outages)",
+    todayEntity: "Сенсор на сьогодні",
+    tomorrowEntity: "Сенсор на завтра",
+    groupEntity: "Сенсор черги",
+    nextOutageEntity: "Сенсор наступного відключення",
+    outageEndEntity: "Сенсор кінця відключень",
+    scheduledOutageEntity: "Бінарний сенсор планового відключення",
+    addressStatusEntity: "Сенсор статусу за адресою",
+    restorationEntity: "Сенсор часу відновлення",
+    connectionEntity: "Сенсор підключення",
+  },
+};
+
+const EN: TranslationStrings = {
+  cardDefaultTitle: "Outage Schedule",
+  weeklyDefaultTitle: "Weekly Schedule",
+  groupPrefix: "Group",
+  today: "Today",
+  tomorrow: "Tomorrow",
+  hoursShort: "h",
+  minShort: "min",
+  hourUnit: "h",
+  noEntity: "Select a ua_outages entity in card configuration",
+  noSchedule: "Schedule data is not available yet",
+  noTomorrow: "Tomorrow's schedule is not published yet",
+  noWeeklyData: "Weekly calendar data is unavailable",
+  powerOn: "Power is on",
+  powerOnNoOutages: "Power is on • No scheduled outages",
+  nextOutageAt: "Next at",
+  possibleOutageAt: "Possible at",
+  outageUntil: "Outage until",
+  outageOngoing: "Outage active",
+  inPrefix: "In",
+  remainingSuffix: "remaining",
+  durationLabel: "duration",
+  expectedRestoration: "Restoration ~",
+  batteryLabel: "Battery",
+  hoursHeader: "Hours",
+  daysHeader: "Day",
+  todayTag: "today",
+  nowTag: "now",
+  slotOn: "Power on",
+  slotOff: "Outage",
+  slotMaybe: "Possible outage",
+  legOn: "On",
+  legOff: "Off",
+  legMaybe: "Maybe",
+  legFirst: "First 30m",
+  legSecond: "Second 30m",
+  connOk: "DTEK",
+  connMirror: "Mirror",
+  connOffline: "Offline",
+  staleSuffix: "cached",
+  addressKinds: {
+    emergency: "Emergency address outage",
+    planned: "Planned address works",
+    stabilization: "Stabilization outage",
+    other: "Address outage",
+  },
+  weekdays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+  editor: {
+    entity: "Primary entity (sensor or calendar)",
+    title: "Card title (optional)",
+    style: "Visual style",
+    styleDtek: "DTEK Table (00-01..23-24)",
+    styleModern: "Modern tiles",
+    theme: "Color theme",
+    themeAuto: "Auto (Home Assistant theme)",
+    themeDtekLight: "DTEK Light",
+    themeDtekDark: "DTEK Dark",
+    layout: "Layout",
+    layoutFull: "Full",
+    layoutCompact: "Compact",
+    layoutKiosk: "Kiosk (large text)",
+    modernGrid: "Tile grid (modern style)",
+    rowOrder: "Weekday order",
+    rowOrderMonSun: "Mon–Sun (calendar week)",
+    rowOrderRolling: "From today (next 7 days)",
+    language: "Card language",
+    langAuto: "Auto (HA locale)",
+    batteryEntity: "Battery SOC entity (optional)",
+    showHeader: "Show header",
+    showCountdown: "Show live countdown",
+    showTomorrow: "Show tomorrow row",
+    showIntervalsText: "Show interval summary text",
+    showLegend: "Show legend",
+    advancedOverrides: "Manual entity overrides",
+    calendarEntity: "Calendar entity (calendar.*_outages)",
+    todayEntity: "Today sensor",
+    tomorrowEntity: "Tomorrow sensor",
+    groupEntity: "Group sensor",
+    nextOutageEntity: "Next outage sensor",
+    outageEndEntity: "Outage end sensor",
+    scheduledOutageEntity: "Scheduled outage binary sensor",
+    addressStatusEntity: "Address status sensor",
+    restorationEntity: "Restoration timestamp sensor",
+    connectionEntity: "Connection sensor",
+  },
+};
+
+const RU: TranslationStrings = {
+  cardDefaultTitle: "График отключений",
+  weeklyDefaultTitle: "График на неделю",
+  groupPrefix: "Очередь",
+  today: "Сегодня",
+  tomorrow: "Завтра",
+  hoursShort: "ч",
+  minShort: "мин",
+  hourUnit: "ч",
+  noEntity: "Выберите сущность интеграции ua_outages в настройках карточки",
+  noSchedule: "Данные графика еще не загружены",
+  noTomorrow: "График на завтра еще не опубликован",
+  noWeeklyData: "Данные недельного календаря отсутствуют",
+  powerOn: "Свет есть",
+  powerOnNoOutages: "Свет есть • Запланированных отключений нет",
+  nextOutageAt: "Следующее в",
+  possibleOutageAt: "Возможное в",
+  outageUntil: "Отключение до",
+  outageOngoing: "Идет отключение",
+  inPrefix: "Через",
+  remainingSuffix: "осталось",
+  durationLabel: "длительность",
+  expectedRestoration: "Восстановление ~",
+  batteryLabel: "АКБ",
+  hoursHeader: "Часы",
+  daysHeader: "День",
+  todayTag: "сегодня",
+  nowTag: "сейчас",
+  slotOn: "Свет есть",
+  slotOff: "Света нет",
+  slotMaybe: "Возможное отключение",
+  legOn: "Свет есть",
+  legOff: "Света нет",
+  legMaybe: "Возможно",
+  legFirst: "Первые 30 мин",
+  legSecond: "Вторые 30 мин",
+  connOk: "DTEK",
+  connMirror: "Зеркало",
+  connOffline: "Офлайн",
+  staleSuffix: "кэш",
+  addressKinds: {
+    emergency: "Аварийное отключение по адресу",
+    planned: "Плановые работы по адресу",
+    stabilization: "Стабилизационное отключение",
+    other: "Отключение по адресу",
+  },
+  weekdays: ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"],
+  editor: {
+    entity: "Основная сущность (сенсор или календарь)",
+    title: "Заголовок карточки (необязательно)",
+    style: "Стиль отображения",
+    styleDtek: "Таблица ДТЭК (00-01..23-24)",
+    styleModern: "Современные плитки",
+    theme: "Цветовая тема",
+    themeAuto: "Авто (тема Home Assistant)",
+    themeDtekLight: "ДТЭК Светлая",
+    themeDtekDark: "ДТЭК Темная",
+    layout: "Макет",
+    layoutFull: "Полный",
+    layoutCompact: "Компактный",
+    layoutKiosk: "Киоск (крупный шрифт)",
+    modernGrid: "Сетка плиток (современный стиль)",
+    rowOrder: "Порядок дней",
+    rowOrderMonSun: "Пн–Вс (неделя)",
+    rowOrderRolling: "От сегодня (7 дней)",
+    language: "Язык карточки",
+    langAuto: "Авто (язык HA)",
+    batteryEntity: "Сенсор заряда АКБ (необязательно)",
+    showHeader: "Показывать шапку",
+    showCountdown: "Показывать живой таймер",
+    showTomorrow: "Показывать завтрашний день",
+    showIntervalsText: "Показывать текстовые интервалы",
+    showLegend: "Показывать легенду",
+    advancedOverrides: "Ручное переопределение сущностей",
+    calendarEntity: "Сущность календаря (calendar.*_outages)",
+    todayEntity: "Сенсор на сегодня",
+    tomorrowEntity: "Сенсор на завтра",
+    groupEntity: "Сенсор очереди",
+    nextOutageEntity: "Сенсор следующего отключения",
+    outageEndEntity: "Сенсор конца отключений",
+    scheduledOutageEntity: "Бинарный сенсор планового отключения",
+    addressStatusEntity: "Сенсор статуса по адресу",
+    restorationEntity: "Сенсор времени восстановления",
+    connectionEntity: "Сенсор подключения",
+  },
+};
+
+export const TRANSLATIONS: Record<SupportedLanguage, TranslationStrings> = {
+  uk: UK,
+  en: EN,
+  ru: RU,
+};
+
+export function resolveLanguage(
+  configLang: CardLanguage | undefined,
+  hassLang: string | undefined,
+): SupportedLanguage {
+  if (configLang === "uk" || configLang === "en" || configLang === "ru") {
+    return configLang;
+  }
+  const norm = (hassLang ?? "uk").toLowerCase();
+  if (norm.startsWith("uk")) return "uk";
+  if (norm.startsWith("ru")) return "ru";
+  if (norm.startsWith("en")) return "en";
+  return "en";
+}
+
+export function getStrings(lang: SupportedLanguage): TranslationStrings {
+  return TRANSLATIONS[lang];
+}
+
+export function formatDuration(totalMinutes: number, lang: SupportedLanguage): string {
+  const safe = Math.max(0, Math.round(totalMinutes));
+  const t = TRANSLATIONS[lang];
+  const hours = Math.floor(safe / 60);
+  const mins = safe % 60;
+  if (hours === 0) {
+    return `${mins} ${t.minShort}`;
+  }
+  if (mins === 0) {
+    return `${hours} ${t.hoursShort}`;
+  }
+  return `${hours} ${t.hoursShort} ${String(mins).padStart(2, "0")} ${t.minShort}`;
+}
+
+export function slotLabel(slot: SlotState, lang: SupportedLanguage): string {
+  const t = TRANSLATIONS[lang];
+  if (slot === "0") return t.slotOff;
+  if (slot === "?") return t.slotMaybe;
+  return t.slotOn;
+}

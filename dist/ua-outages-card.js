@@ -967,17 +967,17 @@ function t(t,e,o,s){var n,a=arguments.length,r=a<3?e:null===s?s=Object.getOwnPro
         </div>
 
         ${"modern"===e?W`
-              <div class="field">
-                <label>${t.modernGrid}</label>
-                <select
-                  .value=${this._config.modern_grid??"2x12"}
-                  @change=${t=>this._update("modern_grid",t.target.value)}
-                >
-                  <option value="2x12">2×12</option>
-                  <option value="1x24">1×24</option>
-                </select>
-              </div>
-            `:Z}
+                <div class="field">
+                  <label>${t.modernGrid}</label>
+                  <select
+                    .value=${this._config.modern_grid??"2x12"}
+                    @change=${t=>this._update("modern_grid",t.target.value)}
+                  >
+                    <option value="2x12">2×12</option>
+                    <option value="1x24">1×24</option>
+                  </select>
+                </div>
+              `:Z}
         ${this._entityField(t.batteryEntity,"battery_soc_entity",["sensor"],"ua-battery-list")}
 
         <div class="toggles">

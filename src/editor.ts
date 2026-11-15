@@ -298,24 +298,26 @@ export class UaOutagesCardEditor extends LitElement {
           </div>
         </div>
 
-        ${style === "modern"
-          ? html`
-              <div class="field">
-                <label>${ed.modernGrid}</label>
-                <select
-                  .value=${this._config.modern_grid ?? "2x12"}
-                  @change=${(ev: Event) =>
-                    this._update(
-                      "modern_grid",
-                      (ev.target as HTMLSelectElement).value as ModernGridMode,
-                    )}
-                >
-                  <option value="2x12">2×12</option>
-                  <option value="1x24">1×24</option>
-                </select>
-              </div>
-            `
-          : nothing}
+        ${
+          style === "modern"
+            ? html`
+                <div class="field">
+                  <label>${ed.modernGrid}</label>
+                  <select
+                    .value=${this._config.modern_grid ?? "2x12"}
+                    @change=${(ev: Event) =>
+                      this._update(
+                        "modern_grid",
+                        (ev.target as HTMLSelectElement).value as ModernGridMode,
+                      )}
+                  >
+                    <option value="2x12">2×12</option>
+                    <option value="1x24">1×24</option>
+                  </select>
+                </div>
+              `
+            : nothing
+        }
         ${this._entityField(ed.batteryEntity, "battery_soc_entity", ["sensor"], "ua-battery-list")}
 
         <div class="toggles">

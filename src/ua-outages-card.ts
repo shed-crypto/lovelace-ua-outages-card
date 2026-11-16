@@ -3,6 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import { findDefaultPrimaryEntity, resolveDailyEntities } from "./discovery";
 import { formatDuration, getStrings, resolveLanguage, TranslationStrings } from "./localize";
 import {
+  cleanAutoTitle,
   formatHourReadout,
   pad2,
   renderDtekHeaderRow,
@@ -460,23 +461,24 @@ export class UaOutagesCard extends LitElement {
 
     const isCompact = layout === "compact";
     const showHeader = cfg.show_header !== false;
+    const showGroupBadge = cfg.show_group_badge !== false;
     const showCountdown = cfg.show_countdown !== false;
     const showTomorrow = !isCompact && cfg.show_tomorrow !== false;
     const showIntervalsText = !isCompact && cfg.show_intervals_text !== false;
     const showLegend = !isCompact && cfg.show_legend !== false;
 
-    const title =
-      cfg.title ||
-      (typeof todayEntity?.attributes.friendly_name === "string"
-        ? todayEntity.attributes.friendly_name.replace(
-            /\s+(Outages today|Відключень сьогодні|Отключений сегодня)$/i,
-            "",
-          )
-        : t.cardDefaultTitle);
     const groupVal =
       groupEntity && groupEntity.state !== "unknown" && groupEntity.state !== "unavailable"
         ? groupEntity.state
         : null;
+    const title =
+      cfg.title ||
+      cleanAutoTitle({
+        friendlyName: todayEntity?.attributes.friendly_name,
+        fallbackTitle: t.cardDefaultTitle,
+        groupVal,
+        showGroupBadge,
+      });
     const regionStr =
       typeof groupEntity?.attributes.region === "string" ? groupEntity.attributes.region : "";
 
@@ -505,21 +507,25 @@ export class UaOutagesCard extends LitElement {
               ? html`
                   <div class="header">
                     <div class="header-left">
-                      <span class="title">${title}</span>
-                      ${
-                        groupVal
-                          ? html`<span class="badge-group ${useYellowPill ? "dtek-pill" : ""}"
-                              >${t.groupPrefix} ${groupVal}</span
-                            >`
-                          : nothing
-                      }
+                      <div class="header-title-row">
+                        <span class="title">${title}</span>
+                        ${
+                          showGroupBadge && groupVal
+                            ? html`<span class="badge-group ${useYellowPill ? "dtek-pill" : ""}"
+                                >${t.groupPrefix} ${groupVal}</span
+                              >`
+                            : nothing
+                        }
+                      </div>
                       ${
                         regionStr && !isCompact
                           ? html`<span class="region">${regionStr}</span>`
                           : nothing
                       }
                     </div>
-                    ${this._renderConnection(t, entities, today, timeZone)}
+                    <div class="header-right">
+                      ${this._renderConnection(t, entities, today, timeZone)}
+                    </div>
                   </div>
                 `
               : nothing

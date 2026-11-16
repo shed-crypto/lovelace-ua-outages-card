@@ -83,28 +83,47 @@ export const cardStyles = css`
     display: flex;
     flex-direction: column;
     gap: 10px;
+    container-type: inline-size;
+    container-name: ua-card;
   }
 
   .header {
     display: flex;
-    align-items: center;
+    flex-wrap: wrap;
+    align-items: flex-start;
     justify-content: space-between;
-    gap: 8px;
+    gap: 6px 10px;
   }
 
   .header-left {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    flex-direction: column;
+    gap: 3px;
     min-width: 0;
+    flex: 1 1 180px;
+  }
+
+  .header-title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+    min-width: 0;
+  }
+
+  .header-right {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
   }
 
   .title {
     font-size: 15px;
     font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
   }
 
   :host([data-layout="kiosk"]) .title {
@@ -132,9 +151,8 @@ export const cardStyles = css`
   .region {
     font-size: 12px;
     color: var(--ua-muted);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
   }
 
   .conn {
@@ -258,9 +276,10 @@ export const cardStyles = css`
 
   .readout-row {
     display: flex;
-    align-items: center;
+    flex-wrap: wrap;
+    align-items: baseline;
     justify-content: space-between;
-    gap: 8px;
+    gap: 4px 10px;
     font-size: 12px;
   }
 
@@ -273,9 +292,8 @@ export const cardStyles = css`
     font-family: var(--code-font-family, monospace);
     font-variant-numeric: tabular-nums;
     color: var(--ua-fg);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
   }
 
   .table-scroll {
@@ -349,6 +367,12 @@ export const cardStyles = css`
   .dtek-day-cell.today-highlight {
     background: var(--ua-today-row-bg);
     color: var(--ua-today-row-fg);
+  }
+
+  .dtek-table tr.is-today-row td {
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--ua-today-row-bg) 75%, transparent),
+      inset 0 -1px 0 color-mix(in srgb, var(--ua-today-row-bg) 75%, transparent);
   }
 
   .dtek-cell {

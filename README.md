@@ -67,8 +67,12 @@ show_group_badge: true
 show_region: true
 show_connection: true
 show_countdown: true
+show_address_alert: true
+show_readout: true
 show_now_line: true
+show_today: true
 show_tomorrow: true
+show_possible: true # set false to filter out grey-zone/possible blocks on this card only
 show_intervals_text: true
 show_legend: true
 # Optional battery/inverter sensors (hidden when omitted):
@@ -94,7 +98,9 @@ row_order: mon_sun # mon_sun | rolling
 language: auto # auto | uk | en | ru
 show_header: true
 show_group_badge: true
+show_readout: true
 show_now_line: true
+show_possible: true # set false to hide grey-zone/possible calendar forecasts on this card
 show_intervals_text: true
 show_legend: true
 ```

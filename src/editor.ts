@@ -573,16 +573,40 @@ export class UaOutagesCardEditor extends LitElement {
               onChange: (c) => this._update("show_countdown", c),
             })}
             ${renderCheckboxInput({
+              field: "show_address_alert",
+              labelText: ed.showAddressAlert,
+              checked: this._config.show_address_alert !== false,
+              onChange: (c) => this._update("show_address_alert", c),
+            })}
+            ${renderCheckboxInput({
+              field: "show_readout",
+              labelText: ed.showReadout,
+              checked: this._config.show_readout !== false,
+              onChange: (c) => this._update("show_readout", c),
+            })}
+            ${renderCheckboxInput({
               field: "show_now_line",
               labelText: ed.showNowLine,
               checked: this._config.show_now_line !== false,
               onChange: (c) => this._update("show_now_line", c),
             })}
             ${renderCheckboxInput({
+              field: "show_today",
+              labelText: ed.showToday,
+              checked: this._config.show_today !== false,
+              onChange: (c) => this._update("show_today", c),
+            })}
+            ${renderCheckboxInput({
               field: "show_tomorrow",
               labelText: ed.showTomorrow,
               checked: this._config.show_tomorrow !== false,
               onChange: (c) => this._update("show_tomorrow", c),
+            })}
+            ${renderCheckboxInput({
+              field: "show_possible",
+              labelText: ed.showPossible,
+              checked: this._config.show_possible !== false,
+              onChange: (c) => this._update("show_possible", c),
             })}
             ${renderCheckboxInput({
               field: "show_intervals_text",
@@ -798,10 +822,22 @@ export class UaOutagesWeeklyCardEditor extends LitElement {
               onChange: (c) => this._update("show_group_badge", c),
             })}
             ${renderCheckboxInput({
+              field: "show_readout",
+              labelText: ed.showReadout,
+              checked: this._config.show_readout !== false,
+              onChange: (c) => this._update("show_readout", c),
+            })}
+            ${renderCheckboxInput({
               field: "show_now_line",
               labelText: ed.showNowLine,
               checked: this._config.show_now_line !== false,
               onChange: (c) => this._update("show_now_line", c),
+            })}
+            ${renderCheckboxInput({
+              field: "show_possible",
+              labelText: ed.showPossible,
+              checked: this._config.show_possible !== false,
+              onChange: (c) => this._update("show_possible", c),
             })}
             ${renderCheckboxInput({
               field: "show_intervals_text",

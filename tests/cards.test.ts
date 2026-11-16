@@ -606,6 +606,9 @@ describe("custom cards registration and DOM rendering", () => {
     card.shadowRoot?.querySelector(".tl-box")?.dispatchEvent(new Event("mouseleave"));
     await card.updateComplete;
 
+    expect(card.shadowRoot?.querySelector(".hero-main")?.textContent).toContain(
+      "Наступне відключення о",
+    );
     expect(card.shadowRoot?.querySelector(".tl-now-line")).not.toBeNull();
     expect(card.shadowRoot?.querySelectorAll(".iv-chip").length).toBeGreaterThanOrEqual(2);
     expect(card.shadowRoot?.querySelector(".iv-chip.ok")?.textContent).toContain("Відключень");

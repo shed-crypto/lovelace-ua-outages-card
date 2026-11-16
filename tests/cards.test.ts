@@ -446,4 +446,48 @@ describe("custom cards registration and DOM rendering", () => {
       calendar_entity: "calendar.custom_outages",
     });
   });
+
+  it("deduplicates group name in header title and keeps today outage color distinct from possible", async () => {
+    const hass = makeFullHass();
+    if (hass.states["sensor.home_outages_today"]) {
+      hass.states["sensor.home_outages_today"].attributes.friendly_name =
+        "Українка · Черга 3.2 Відключень сьогодні";
+    }
+    const card = document.createElement("ua-outages-card") as UaOutagesCard;
+    card.hass = hass;
+    card.setConfig({
+      type: "custom:ua-outages-card",
+      entity: "sensor.home_outages_today",
+      language: "uk",
+    });
+    document.body.appendChild(card);
+    await card.updateComplete;
+
+    expect(card.shadowRoot?.querySelector(".title")?.textContent?.trim()).toBe("Українка");
+    expect(card.shadowRoot?.querySelector(".badge-group")?.textContent?.trim()).toBe("Черга 3.2");
+
+    // Weekly card keeps readout in its own row outside .header and separates '0' vs '?' on today row.
+    const weekly = document.createElement("ua-outages-weekly-card") as UaOutagesWeeklyCard;
+    weekly.hass = hass;
+    weekly.setConfig({
+      type: "custom:ua-outages-weekly-card",
+      entity: "calendar.home_outages",
+      theme: "dtek_light",
+      language: "uk",
+    });
+    document.body.appendChild(weekly);
+    await weekly.updateComplete;
+
+    expect(weekly.shadowRoot?.querySelector(".header .hover-readout")).toBeNull();
+    expect(weekly.shadowRoot?.querySelector(".readout-row .hover-readout")).not.toBeNull();
+    const todayRow = weekly.shadowRoot?.querySelector("tr.is-today-row");
+    expect(todayRow).not.toBeNull();
+    const todayBgs = Array.from(todayRow?.querySelectorAll(".dtek-cell-bg > span") ?? []).map(
+      (el) => (el as HTMLElement).style.background,
+    );
+    expect(todayBgs).toContain("var(--ua-off-bg)");
+    expect(todayBgs).toContain("var(--ua-maybe-bg)");
+    expect(todayBgs).toContain("var(--ua-today-on-bg)");
+    expect(todayBgs).not.toContain("var(--ua-today-off-bg)");
+  });
 });

@@ -191,15 +191,21 @@ export class UaOutagesWeeklyCard extends LitElement {
         <div class="wrap">
           <div class="header">
             <div class="header-left">
-              <span class="title">${cfg.title || t.weeklyDefaultTitle}</span>
-              ${
-                groupVal
-                  ? html`<span class="badge-group dtek-pill">${t.groupPrefix} ${groupVal}</span>`
-                  : nothing
-              }
+              <div class="header-title-row">
+                <span class="title">${cfg.title || t.weeklyDefaultTitle}</span>
+                ${
+                  groupVal
+                    ? html`<span class="badge-group dtek-pill">${t.groupPrefix} ${groupVal}</span>`
+                    : nothing
+                }
+              </div>
             </div>
-            ${readout ? html`<span class="hover-readout">${readout}</span>` : nothing}
           </div>
+          ${
+            readout
+              ? html`<div class="readout-row"><span class="hover-readout">${readout}</span></div>`
+              : nothing
+          }
 
           <div class="table-scroll" @mouseleave=${() => (this._hoverCell = null)}>
             <table class="dtek-table">
@@ -207,7 +213,7 @@ export class UaOutagesWeeklyCard extends LitElement {
               <tbody>
                 ${rows.map(
                   (row, dayIdx) => html`
-                    <tr>
+                    <tr class=${row.isToday ? "is-today-row" : ""}>
                       <td class="dtek-day-cell ${row.isToday ? "today-highlight" : ""}">
                         ${t.weekdays[row.weekdayIndex]}
                       </td>

@@ -18,14 +18,34 @@ export function resolveActiveTheme(theme: CardTheme | undefined, darkMode: boole
 }
 
 export function dtekHalfBackground(ch: SlotState, highlightRow: boolean): string {
-  if (highlightRow) {
-    if (ch === "0") return "var(--ua-today-off-bg)";
-    if (ch === "?") return "var(--ua-today-maybe-bg)";
-    return "var(--ua-today-on-bg)";
-  }
+  // Keep outage ("0") and possible ("?") distinct from today's yellow row highlight.
   if (ch === "0") return "var(--ua-off-bg)";
   if (ch === "?") return "var(--ua-maybe-bg)";
-  return "var(--ua-bg)";
+  return highlightRow ? "var(--ua-today-on-bg)" : "var(--ua-bg)";
+}
+
+export function cleanAutoTitle(options: {
+  friendlyName: unknown;
+  fallbackTitle: string;
+  groupVal: string | null;
+  showGroupBadge: boolean;
+}): string {
+  const { friendlyName, fallbackTitle, groupVal, showGroupBadge } = options;
+  if (typeof friendlyName !== "string" || !friendlyName.trim()) {
+    return fallbackTitle;
+  }
+  let cleaned = friendlyName
+    .replace(/\s+(Outages today|Відключень сьогодні|Отключений сегодня)$/i, "")
+    .trim();
+  if (groupVal && showGroupBadge) {
+    const escaped = groupVal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const dupPattern = new RegExp(
+      `\\s*(?:[·•\\-|]\\s*|\\()(?:Черга|Group|Queue|Группа)\\s+${escaped}\\)?$`,
+      "i",
+    );
+    cleaned = cleaned.replace(dupPattern, "").trim();
+  }
+  return cleaned || fallbackTitle;
 }
 
 export function renderDtekHeaderRow(cornerLabel: string): TemplateResult {

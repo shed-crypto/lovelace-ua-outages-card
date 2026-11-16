@@ -104,6 +104,7 @@ export interface UaOutagesCardConfig {
   modern_grid?: ModernGridMode;
   language?: CardLanguage;
   show_header?: boolean;
+  show_group_badge?: boolean;
   show_countdown?: boolean;
   show_tomorrow?: boolean;
   show_intervals_text?: boolean;

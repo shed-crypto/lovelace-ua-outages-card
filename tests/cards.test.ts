@@ -436,8 +436,12 @@ describe("custom cards registration and DOM rendering", () => {
       "show_region",
       "show_connection",
       "show_countdown",
+      "show_address_alert",
+      "show_readout",
       "show_now_line",
+      "show_today",
       "show_tomorrow",
+      "show_possible",
       "show_intervals_text",
       "show_legend",
     ]) {
@@ -460,7 +464,7 @@ describe("custom cards registration and DOM rendering", () => {
       input(ov).dispatchEvent(new Event("change"));
     }
 
-    expect(events.length).toBeGreaterThanOrEqual(20);
+    expect(events.length).toBeGreaterThanOrEqual(24);
     const last = events[events.length - 1];
     expect(last.title).toBe("My Home");
     expect(last.style).toBe("timeline");
@@ -473,6 +477,10 @@ describe("custom cards registration and DOM rendering", () => {
     expect(last.battery_runtime_entity).toBe("sensor.battery_runtime");
     expect(last.battery_low_threshold).toBe(15);
     expect(last.show_header).toBe(false);
+    expect(last.show_address_alert).toBe(false);
+    expect(last.show_readout).toBe(false);
+    expect(last.show_today).toBe(false);
+    expect(last.show_possible).toBe(false);
     expect(last.show_legend).toBe(false);
 
     const wEditor = document.createElement(
@@ -523,7 +531,9 @@ describe("custom cards registration and DOM rendering", () => {
     for (const cb of [
       "show_header",
       "show_group_badge",
+      "show_readout",
       "show_now_line",
+      "show_possible",
       "show_intervals_text",
       "show_legend",
     ]) {
@@ -550,6 +560,8 @@ describe("custom cards registration and DOM rendering", () => {
       language: "en",
       empty_days_mode: "hide_unscheduled",
       show_header: false,
+      show_readout: false,
+      show_possible: false,
       show_legend: false,
       calendar_entity: "calendar.custom_calendar_entity",
     });
@@ -733,5 +745,61 @@ describe("custom cards registration and DOM rendering", () => {
     expect(todayBgs).toContain("var(--ua-maybe-bg)");
     expect(todayBgs).toContain("var(--ua-today-on-bg)");
     expect(todayBgs).not.toContain("var(--ua-today-off-bg)");
+  });
+
+  it("supports per-card show_possible=false, show_readout=false, show_address_alert=false, and show_today=false", async () => {
+    const forecastApi = makeCallApi([
+      {
+        summary: "Можливе відключення",
+        start: { dateTime: new Date(Date.now() + 2 * 86_400_000).toISOString() },
+        end: { dateTime: new Date(Date.now() + 2 * 86_400_000 + 7_200_000).toISOString() },
+      },
+    ]);
+    const hass = makeFullHass({ callApi: forecastApi.fn });
+    if (hass.states["sensor.home_outages_tomorrow"]) {
+      hass.states["sensor.home_outages_tomorrow"].attributes.published = true;
+      hass.states["sensor.home_outages_tomorrow"].attributes.schedule = "00" + "1".repeat(46);
+    }
+
+    const card = document.createElement("ua-outages-card") as UaOutagesCard;
+    card.hass = hass;
+    card.setConfig({
+      type: "custom:ua-outages-card",
+      entity: "sensor.home_outages_today",
+      style: "modern",
+      show_possible: false,
+      show_address_alert: false,
+      show_readout: false,
+      show_today: false,
+      show_tomorrow: true,
+    });
+    document.body.appendChild(card);
+    await card.updateComplete;
+
+    expect(card.shadowRoot?.querySelector(".alert-banner")).toBeNull();
+    expect(card.shadowRoot?.querySelector(".hover-readout")).toBeNull();
+    // Only tomorrow's 24 hour tiles render when show_today=false; no maybe slots exist.
+    expect(card.shadowRoot?.querySelectorAll(".hour-tile")).toHaveLength(24);
+    expect(card.shadowRoot?.querySelectorAll(".slot-maybe")).toHaveLength(0);
+
+    // Weekly card with show_possible=false hides possible calendar forecasts & readout.
+    const weekly = document.createElement("ua-outages-weekly-card") as UaOutagesWeeklyCard;
+    weekly.hass = hass;
+    weekly.setConfig({
+      type: "custom:ua-outages-weekly-card",
+      entity: "calendar.home_outages",
+      weekly_view: "list",
+      empty_days_mode: "hide_unscheduled",
+      show_possible: false,
+      show_readout: false,
+    });
+    document.body.appendChild(weekly);
+    await weekly.updateComplete;
+    await weekly.updateComplete;
+
+    expect(weekly.shadowRoot?.querySelector(".hover-readout")).toBeNull();
+    expect(weekly.shadowRoot?.querySelectorAll(".st-maybe")).toHaveLength(0);
+    // Today and published tomorrow remain visible (confirmed-only), while day +2 possible is stripped.
+    expect(weekly.shadowRoot?.querySelectorAll(".wlist-card")).toHaveLength(2);
   });
 });

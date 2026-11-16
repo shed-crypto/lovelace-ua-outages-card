@@ -121,8 +121,12 @@ export interface UaOutagesCardConfig {
   show_region?: boolean;
   show_connection?: boolean;
   show_countdown?: boolean;
+  show_address_alert?: boolean;
+  show_readout?: boolean;
   show_now_line?: boolean;
+  show_today?: boolean;
   show_tomorrow?: boolean;
+  show_possible?: boolean;
   show_intervals_text?: boolean;
   show_legend?: boolean;
   battery_soc_entity?: string;
@@ -155,7 +159,9 @@ export interface UaOutagesWeeklyCardConfig {
   language?: CardLanguage;
   show_header?: boolean;
   show_group_badge?: boolean;
+  show_readout?: boolean;
   show_now_line?: boolean;
+  show_possible?: boolean;
   show_intervals_text?: boolean;
   show_legend?: boolean;
   calendar_entity?: string;

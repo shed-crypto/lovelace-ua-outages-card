@@ -107,8 +107,12 @@ export interface TranslationStrings {
     showRegion: string;
     showConnection: string;
     showCountdown: string;
+    showAddressAlert: string;
+    showReadout: string;
     showNowLine: string;
+    showToday: string;
     showTomorrow: string;
+    showPossible: string;
     showIntervalsText: string;
     showLegend: string;
     advancedOverrides: string;
@@ -237,8 +241,12 @@ const UK: TranslationStrings = {
     showRegion: "Показувати назву регіону",
     showConnection: "Показувати статус підключення",
     showCountdown: "Показувати живий таймер",
+    showAddressAlert: "Показувати алерт за адресою",
+    showReadout: "Показувати деталі обраної години",
     showNowLine: "Показувати жовту лінію «зараз»",
-    showTomorrow: "Показувати завтрашній день",
+    showToday: "Показувати блок сьогодні",
+    showTomorrow: "Показувати блок завтра",
+    showPossible: "Показувати можливі відключення (сіра зона)",
     showIntervalsText: "Показувати інтервали відключень",
     showLegend: "Показувати легенду",
     advancedOverrides: "Ручне перевизначення сутностей",
@@ -367,8 +375,12 @@ const EN: TranslationStrings = {
     showRegion: "Show region subtitle",
     showConnection: "Show connection status",
     showCountdown: "Show live countdown",
+    showAddressAlert: "Show address outage alert",
+    showReadout: "Show selected hour readout",
     showNowLine: "Show yellow 'now' cursor line",
-    showTomorrow: "Show tomorrow row",
+    showToday: "Show today block",
+    showTomorrow: "Show tomorrow block",
+    showPossible: "Show possible outages (grey zone)",
     showIntervalsText: "Show outage intervals",
     showLegend: "Show legend",
     advancedOverrides: "Manual entity overrides",
@@ -497,8 +509,12 @@ const RU: TranslationStrings = {
     showRegion: "Показывать название региона",
     showConnection: "Показывать статус подключения",
     showCountdown: "Показывать живой таймер",
+    showAddressAlert: "Показывать алерт по адресу",
+    showReadout: "Показывать детали выбранного часа",
     showNowLine: "Показывать желтую линию «сейчас»",
-    showTomorrow: "Показывать завтрашний день",
+    showToday: "Показывать блок сегодня",
+    showTomorrow: "Показывать блок завтра",
+    showPossible: "Показывать возможные отключения (серая зона)",
     showIntervalsText: "Показывать интервалы отключений",
     showLegend: "Показывать легенду",
     advancedOverrides: "Ручное переопределение сущностей",

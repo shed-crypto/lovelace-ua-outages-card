@@ -567,6 +567,18 @@ function parseCalTimestamp(val: { dateTime?: string; date?: string } | string): 
   return Number.isNaN(ms) ? null : ms;
 }
 
+export function stripPossibleSlots(day: DayScheduleData): DayScheduleData {
+  if (!day.slots || day.possibleHours === 0) {
+    return day;
+  }
+  const filteredSlots = day.slots.map((ch) => (ch === "?" ? "1" : ch));
+  return {
+    ...day,
+    slots: filteredSlots,
+    possibleHours: 0,
+  };
+}
+
 export function buildWeeklyMatrix(options: {
   events: readonly CalendarApiEvent[];
   todayDate: Date;
@@ -574,8 +586,18 @@ export function buildWeeklyMatrix(options: {
   tomorrowSchedule?: DayScheduleData;
   rowOrder: WeeklyRowOrder;
   timeZone?: string;
+  showPossible?: boolean;
 }): WeeklyDayRow[] {
   const tz = options.timeZone ?? DEFAULT_TIMEZONE;
+  const allowPossible = options.showPossible !== false;
+  const todaySched =
+    options.todaySchedule && !allowPossible
+      ? stripPossibleSlots(options.todaySchedule)
+      : options.todaySchedule;
+  const tomorrowSched =
+    options.tomorrowSchedule && !allowPossible
+      ? stripPossibleSlots(options.tomorrowSchedule)
+      : options.tomorrowSchedule;
   const { dateIso: todayIso, weekdayIndex: todayWeekday } = getLocalDateAndSlot(
     options.todayDate,
     tz,
@@ -591,7 +613,11 @@ export function buildWeeklyMatrix(options: {
       const kind = classifyCalendarSummary(ev.summary);
       const startMs = parseCalTimestamp(ev.start);
       const endMs = parseCalTimestamp(ev.end);
-      return kind && startMs !== null && endMs !== null && endMs > startMs
+      return kind &&
+        (allowPossible || kind !== "?") &&
+        startMs !== null &&
+        endMs !== null &&
+        endMs > startMs
         ? { kind, startMs, endMs }
         : null;
     })
@@ -599,25 +625,17 @@ export function buildWeeklyMatrix(options: {
 
   for (let offset = 0; offset < 7; offset++) {
     const dateIso = addDaysIso(todayIso, offset);
-    if (
-      dateIso === options.todaySchedule?.dateIso &&
-      options.todaySchedule.published &&
-      options.todaySchedule.slots
-    ) {
+    if (dateIso === todaySched?.dateIso && todaySched.published && todaySched.slots) {
       dayMap.set(dateIso, {
-        slots: [...options.todaySchedule.slots],
+        slots: [...todaySched.slots],
         hasSchedule: true,
         source: "today",
       });
       continue;
     }
-    if (
-      dateIso === options.tomorrowSchedule?.dateIso &&
-      options.tomorrowSchedule.published &&
-      options.tomorrowSchedule.slots
-    ) {
+    if (dateIso === tomorrowSched?.dateIso && tomorrowSched.published && tomorrowSched.slots) {
       dayMap.set(dateIso, {
-        slots: [...options.tomorrowSchedule.slots],
+        slots: [...tomorrowSched.slots],
         hasSchedule: true,
         source: "tomorrow",
       });

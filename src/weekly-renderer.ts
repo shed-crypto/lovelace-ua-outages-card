@@ -236,7 +236,9 @@ export function renderWeeklyScheduleContent(options: {
   nowTimeBadge: string;
   hoverCell: { dayIdx: number; hour: number } | null;
   onHover: (cell: { dayIdx: number; hour: number } | null) => void;
+  showReadout: boolean;
   showNowLine: boolean;
+  showPossible: boolean;
   showIntervals: boolean;
   showLegend: boolean;
   weeklyPlanDisabled: boolean;
@@ -254,7 +256,9 @@ export function renderWeeklyScheduleContent(options: {
     nowTimeBadge,
     hoverCell,
     onHover,
+    showReadout,
     showNowLine,
+    showPossible,
     showIntervals,
     showLegend,
     weeklyPlanDisabled,
@@ -353,9 +357,13 @@ export function renderWeeklyScheduleContent(options: {
   const hasUnscheduledDays = rows.some((r) => !r.hasSchedule && !r.isToday);
 
   return html`
-    ${readout ? html`<div class="readout-row"><span class="hover-readout">${readout}</span></div>` : nothing}
     ${
-      weeklyPlanDisabled && hasUnscheduledDays
+      showReadout && readout
+        ? html`<div class="readout-row"><span class="hover-readout">${readout}</span></div>`
+        : nothing
+    }
+    ${
+      showPossible && weeklyPlanDisabled && hasUnscheduledDays
         ? html`<div class="notice-banner">${t.weeklyPlanDisabledNotice}</div>`
         : nothing
     }
@@ -363,7 +371,11 @@ export function renderWeeklyScheduleContent(options: {
     ${
       showLegend
         ? html`<div class="footer">
-            ${usesBarsLegend ? renderTimelineLegend(t, true) : renderDtekLegend(t, true)}
+            ${
+              usesBarsLegend
+                ? renderTimelineLegend(t, showPossible)
+                : renderDtekLegend(t, showPossible)
+            }
           </div>`
         : nothing
     }

@@ -68,7 +68,9 @@ export class UaOutagesWeeklyCard extends LitElement {
       language: "auto",
       show_header: true,
       show_group_badge: true,
+      show_readout: true,
       show_now_line: true,
+      show_possible: true,
       show_intervals_text: true,
       show_legend: true,
       ...config,
@@ -163,6 +165,7 @@ export class UaOutagesWeeklyCard extends LitElement {
       ? extractDaySchedule(hass.states[entities.tomorrow], tomorrowIso, tz)
       : undefined;
 
+    const showPossible = cfg.show_possible !== false;
     const rows: WeeklyDayRow[] = buildWeeklyMatrix({
       events: this._events,
       todayDate: now,
@@ -170,6 +173,7 @@ export class UaOutagesWeeklyCard extends LitElement {
       tomorrowSchedule,
       rowOrder: cfg.row_order ?? "mon_sun",
       timeZone: tz,
+      showPossible,
     });
 
     const groupEntity = entities.group ? hass.states[entities.group] : undefined;
@@ -229,7 +233,9 @@ export class UaOutagesWeeklyCard extends LitElement {
             onHover: (cell) => {
               this._hoverCell = cell;
             },
+            showReadout: cfg.show_readout !== false,
             showNowLine: cfg.show_now_line !== false,
+            showPossible,
             showIntervals: cfg.show_intervals_text !== false,
             showLegend: cfg.show_legend !== false,
             weeklyPlanDisabled,

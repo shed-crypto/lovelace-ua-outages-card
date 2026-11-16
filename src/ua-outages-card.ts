@@ -25,6 +25,7 @@ import {
   getLocalDateAndSlot,
   getMinuteOfDay,
   parseBatteryStatus,
+  stripPossibleSlots,
 } from "./schedule-parser";
 import { cardStyles } from "./styles";
 import {
@@ -113,8 +114,12 @@ export class UaOutagesCard extends LitElement {
       show_region: true,
       show_connection: true,
       show_countdown: true,
+      show_address_alert: true,
+      show_readout: true,
       show_now_line: true,
+      show_today: true,
       show_tomorrow: true,
+      show_possible: true,
       show_intervals_text: true,
       show_legend: true,
       ...config,
@@ -354,9 +359,11 @@ export class UaOutagesCard extends LitElement {
     today: DayScheduleData;
     tomorrow: DayScheduleData;
     nowHour: number;
+    showToday: boolean;
     showTomorrow: boolean;
-  }): TemplateResult {
-    const { t, today, tomorrow, nowHour, showTomorrow } = options;
+  }): TemplateResult | typeof nothing {
+    const { t, today, tomorrow, nowHour, showToday, showTomorrow } = options;
+    if (!showToday && !showTomorrow) return nothing;
     const hours = Array.from({ length: 24 }, (_, h) => h);
     const onSelect = (h: number): void => {
       this._hoverHour = h;
@@ -369,21 +376,27 @@ export class UaOutagesCard extends LitElement {
         <table class="dtek-table">
           ${renderDtekHeaderRow(t.hoursHeader)}
           <tbody>
-            <tr>
-              <td class="dtek-day-cell">${t.today} ${formatDateShort(today.dateIso)}</td>
-              ${
-                todaySlots
-                  ? hours.map((h) =>
-                      renderDtekHourCell({
-                        slots: todaySlots,
-                        hour: h,
-                        isNowHour: h === nowHour,
-                        onSelect,
-                      }),
-                    )
-                  : html`<td class="dtek-empty-row" colspan="24">${t.noSchedule}</td>`
-              }
-            </tr>
+            ${
+              showToday
+                ? html`
+                    <tr>
+                      <td class="dtek-day-cell">${t.today} ${formatDateShort(today.dateIso)}</td>
+                      ${
+                        todaySlots
+                          ? hours.map((h) =>
+                              renderDtekHourCell({
+                                slots: todaySlots,
+                                hour: h,
+                                isNowHour: h === nowHour,
+                                onSelect,
+                              }),
+                            )
+                          : html`<td class="dtek-empty-row" colspan="24">${t.noSchedule}</td>`
+                      }
+                    </tr>
+                  `
+                : nothing
+            }
             ${
               showTomorrow
                 ? html`
@@ -581,8 +594,11 @@ export class UaOutagesCard extends LitElement {
       : undefined;
     const restorationEntity = entities.restoration ? hass.states[entities.restoration] : undefined;
 
-    const today = extractDaySchedule(todayEntity, todayIso, timeZone);
-    const tomorrow = extractDaySchedule(tomorrowEntity, tomorrowIso, timeZone);
+    const showPossible = cfg.show_possible !== false;
+    const rawToday = extractDaySchedule(todayEntity, todayIso, timeZone);
+    const rawTomorrow = extractDaySchedule(tomorrowEntity, tomorrowIso, timeZone);
+    const today = showPossible ? rawToday : stripPossibleSlots(rawToday);
+    const tomorrow = showPossible ? rawTomorrow : stripPossibleSlots(rawTomorrow);
     const timing = computeActiveTiming({
       today,
       tomorrow,
@@ -604,7 +620,10 @@ export class UaOutagesCard extends LitElement {
     const showRegion = !isCompact && cfg.show_region !== false;
     const showConnection = cfg.show_connection !== false;
     const showCountdown = cfg.show_countdown !== false;
+    const showAddressAlert = !isCompact && cfg.show_address_alert !== false;
+    const showReadout = cfg.show_readout !== false;
     const showNowLine = cfg.show_now_line !== false;
+    const showToday = cfg.show_today !== false;
     const showTomorrow = !isCompact && cfg.show_tomorrow !== false;
     const rawIntervalDisplay: IntervalDisplayMode = cfg.interval_display ?? "auto";
     const resolvedIntervalMode =
@@ -664,6 +683,7 @@ export class UaOutagesCard extends LitElement {
           tomorrowSchedule: tomorrow,
           rowOrder: cfg.row_order ?? "mon_sun",
           timeZone,
+          showPossible,
         })
       : [];
 
@@ -742,48 +762,70 @@ export class UaOutagesCard extends LitElement {
               : nothing
           }
           ${
-            !isCompact
+            showAddressAlert
               ? this._renderAddressAlert(t, addressStatusEntity, restorationEntity, timeZone)
               : nothing
           }
           ${
             showDaily
               ? html`
-                  <div class="readout-row">
-                    <span class="section-lbl">
-                      ${t.today} (${today.outageHours.toFixed(1)} ${t.hourUnit})
-                    </span>
-                    ${readout ? html`<span class="hover-readout">${readout}</span>` : nothing}
-                  </div>
-
+                  ${
+                    showToday && showReadout
+                      ? html`
+                          <div class="readout-row">
+                            <span class="section-lbl">
+                              ${t.today} (${today.outageHours.toFixed(1)} ${t.hourUnit})
+                            </span>
+                            ${readout ? html`<span class="hover-readout">${readout}</span>` : nothing}
+                          </div>
+                        `
+                      : nothing
+                  }
                   ${
                     style === "dtek"
-                      ? this._renderDtekTable({ t, today, tomorrow, nowHour, showTomorrow })
+                      ? this._renderDtekTable({
+                          t,
+                          today,
+                          tomorrow,
+                          nowHour,
+                          showToday,
+                          showTomorrow,
+                        })
                       : html`
                           ${
-                            today.slots
-                              ? style === "timeline"
-                                ? renderTimelineDailyBox({
-                                    slots: today.slots,
-                                    nowPercent: showNowLine ? minuteInfo.percent : null,
-                                    nowTimeLabel: nowTimeBadge,
-                                    showNowBadge: showNowLine,
-                                    onSelectHour: (h) => {
-                                      this._hoverHour = h;
-                                    },
-                                    onLeave: () => {
-                                      this._hoverHour = null;
-                                    },
-                                  })
-                                : this._renderModernTileGrid({
-                                    slots: today.slots,
-                                    gridMode: cfg.modern_grid ?? "2x12",
-                                    nowSlot,
-                                    interactive: true,
-                                  })
-                              : html`<div class="tmr-unpublished">${t.noSchedule}</div>`
+                            showToday
+                              ? html`
+                                  ${
+                                    today.slots
+                                      ? style === "timeline"
+                                        ? renderTimelineDailyBox({
+                                            slots: today.slots,
+                                            nowPercent: showNowLine ? minuteInfo.percent : null,
+                                            nowTimeLabel: nowTimeBadge,
+                                            showNowBadge: showNowLine,
+                                            onSelectHour: (h) => {
+                                              this._hoverHour = h;
+                                            },
+                                            onLeave: () => {
+                                              this._hoverHour = null;
+                                            },
+                                          })
+                                        : this._renderModernTileGrid({
+                                            slots: today.slots,
+                                            gridMode: cfg.modern_grid ?? "2x12",
+                                            nowSlot,
+                                            interactive: true,
+                                          })
+                                      : html`<div class="tmr-unpublished">${t.noSchedule}</div>`
+                                  }
+                                  ${
+                                    showChips && today.slots
+                                      ? renderIntervalChips(today.slots, t, true)
+                                      : nothing
+                                  }
+                                `
+                              : nothing
                           }
-                          ${showChips && today.slots ? renderIntervalChips(today.slots, t, true) : nothing}
                           ${
                             showTomorrow
                               ? this._renderTomorrowBlock({
@@ -807,7 +849,10 @@ export class UaOutagesCard extends LitElement {
                                 ? style === "dtek"
                                   ? renderDtekLegend(t, false)
                                   : style === "timeline"
-                                    ? renderTimelineLegend(t, Boolean(today.possibleHours > 0))
+                                    ? renderTimelineLegend(
+                                        t,
+                                        showPossible && today.possibleHours > 0,
+                                      )
                                     : html`
                                         <div class="legend">
                                           <span class="legend-item">
@@ -818,10 +863,16 @@ export class UaOutagesCard extends LitElement {
                                             <span class="legend-swatch slot-off"></span>
                                             <span>${t.legOff}</span>
                                           </span>
-                                          <span class="legend-item">
-                                            <span class="legend-swatch slot-maybe"></span>
-                                            <span>${t.legMaybe}</span>
-                                          </span>
+                                          ${
+                                            showPossible
+                                              ? html`
+                                                  <span class="legend-item">
+                                                    <span class="legend-swatch slot-maybe"></span>
+                                                    <span>${t.legMaybe}</span>
+                                                  </span>
+                                                `
+                                              : nothing
+                                          }
                                         </div>
                                       `
                                 : nothing
@@ -853,7 +904,9 @@ export class UaOutagesCard extends LitElement {
                       onHover: (cell) => {
                         this._weeklyHoverCell = cell;
                       },
+                      showReadout,
                       showNowLine,
+                      showPossible,
                       showIntervals: resolvedIntervalMode !== "none",
                       showLegend,
                       weeklyPlanDisabled,

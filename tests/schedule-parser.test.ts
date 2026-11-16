@@ -11,6 +11,7 @@ import {
   parseBatteryStatus,
   parseSlotString,
   slotsFromIntervals,
+  stripPossibleSlots,
   summarizeSlotHours,
 } from "../src/schedule-parser";
 import { HassEntity, HomeAssistant } from "../src/types";
@@ -297,5 +298,36 @@ describe("weekly calendar builder", () => {
       isLow: true,
       willLastNextOutage: null,
     });
+  });
+
+  it("strips possible slots and filters calendar possible events when showPossible=false", () => {
+    const rawDay = extractDaySchedule(
+      makeEntity("sensor.home_outages_today", "2", {
+        date: "2026-11-16",
+        published: true,
+        schedule: "00??" + "1".repeat(44),
+      }),
+      "2026-11-16",
+    );
+    const cleaned = stripPossibleSlots(rawDay);
+    expect(cleaned.possibleHours).toBe(0);
+    expect(cleaned.slots?.slice(0, 4)).toEqual(["0", "0", "1", "1"]);
+
+    const rows = buildWeeklyMatrix({
+      events: [
+        {
+          summary: "Можливе відключення",
+          start: { dateTime: "2026-11-18T10:00:00+02:00" },
+          end: { dateTime: "2026-11-18T14:00:00+02:00" },
+        },
+      ],
+      todayDate: new Date("2026-11-16T09:00:00Z"),
+      todaySchedule: rawDay,
+      rowOrder: "mon_sun",
+      showPossible: false,
+    });
+    expect(rows[0].slots[2]).toBe("1");
+    expect(rows[2].hasSchedule).toBe(false);
+    expect(rows[2].slots.every((s) => s === "1")).toBe(true);
   });
 });

@@ -1,7 +1,13 @@
-export type CardStyle = "dtek" | "modern";
-export type CardTheme = "auto" | "dtek_light" | "dtek_dark";
+export type CardStyle = "dtek" | "modern" | "timeline";
+export type CardTheme = "auto" | "dtek_light" | "dtek_dark" | "kiosk_dark" | "oled_black";
 export type CardLayout = "full" | "compact" | "kiosk";
 export type ModernGridMode = "2x12" | "1x24";
+export type CardViewMode = "daily_only" | "switchable" | "both";
+export type ActiveScheduleView = "today" | "week";
+export type IntervalDisplayMode = "auto" | "chips" | "text" | "both" | "none";
+export type WeeklyViewMode = "auto" | "timeline_bars" | "table" | "list";
+export type MobileWeeklyViewMode = "list" | "compact_bars";
+export type EmptyDaysMode = "compact_empty" | "hide_unscheduled" | "show_all";
 export type CardLanguage = "auto" | "uk" | "en" | "ru";
 export type SupportedLanguage = "uk" | "en" | "ru";
 export type WeeklyRowOrder = "mon_sun" | "rolling";
@@ -101,15 +107,28 @@ export interface UaOutagesCardConfig {
   style?: CardStyle;
   theme?: CardTheme;
   layout?: CardLayout;
+  view_mode?: CardViewMode;
+  default_view?: ActiveScheduleView;
   modern_grid?: ModernGridMode;
+  interval_display?: IntervalDisplayMode;
+  weekly_view?: WeeklyViewMode;
+  mobile_weekly_view?: MobileWeeklyViewMode;
+  empty_days_mode?: EmptyDaysMode;
+  row_order?: WeeklyRowOrder;
   language?: CardLanguage;
   show_header?: boolean;
   show_group_badge?: boolean;
+  show_region?: boolean;
+  show_connection?: boolean;
   show_countdown?: boolean;
+  show_now_line?: boolean;
   show_tomorrow?: boolean;
   show_intervals_text?: boolean;
   show_legend?: boolean;
   battery_soc_entity?: string;
+  battery_runtime_entity?: string;
+  battery_low_threshold?: number;
+  calendar_entity?: string;
   tomorrow_entity?: string;
   group_entity?: string;
   next_outage_entity?: string;
@@ -128,13 +147,22 @@ export interface UaOutagesWeeklyCardConfig {
   entity?: string;
   title?: string;
   theme?: CardTheme;
+  layout?: CardLayout;
+  weekly_view?: WeeklyViewMode;
+  mobile_weekly_view?: MobileWeeklyViewMode;
+  empty_days_mode?: EmptyDaysMode;
   row_order?: WeeklyRowOrder;
   language?: CardLanguage;
+  show_header?: boolean;
+  show_group_badge?: boolean;
+  show_now_line?: boolean;
+  show_intervals_text?: boolean;
   show_legend?: boolean;
   calendar_entity?: string;
   today_entity?: string;
   tomorrow_entity?: string;
   group_entity?: string;
+  connection_entity?: string;
   last_update_entity?: string;
 }
 
@@ -175,10 +203,28 @@ export interface ActiveTimingInfo {
   nextOutageDurationMinutes: number | null;
 }
 
+export interface MergedSlotInterval {
+  startSlot: number;
+  endSlot: number;
+  startLabel: string;
+  endLabel: string;
+  durationMinutes: number;
+  kind: "0" | "?";
+}
+
+export interface BatteryStatusInfo {
+  soc: number | null;
+  runtimeMinutes: number | null;
+  isLow: boolean;
+  willLastNextOutage: boolean | null;
+}
+
 export interface WeeklyDayRow {
   weekdayIndex: number; // 0 = Monday .. 6 = Sunday
   dateIso: string;
   isToday: boolean;
+  hasSchedule: boolean;
+  source: "today" | "tomorrow" | "calendar" | "empty";
   slots: SlotState[];
 }
 

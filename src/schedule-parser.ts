@@ -1,8 +1,11 @@
 import {
   ActiveTimingInfo,
+  BatteryStatusInfo,
   CalendarApiEvent,
   DayScheduleData,
   HassEntity,
+  HomeAssistant,
+  MergedSlotInterval,
   RawOutageInterval,
   SlotState,
   WeeklyDayRow,
@@ -107,6 +110,26 @@ export function getLocalDateAndSlot(
     dateIso: `${map.year}-${map.month}-${map.day}`,
     slotIndex,
     weekdayIndex: weekdayMap[map.weekday ?? "Mon"] ?? 0,
+  };
+}
+
+export function getMinuteOfDay(
+  date: Date,
+  timeZone: string = DEFAULT_TIMEZONE,
+): { hour: number; minute: number; totalMinutes: number; percent: number } {
+  const parts = getTimePartsFormatter(timeZone).formatToParts(date);
+  const map: Record<string, string> = {};
+  for (const part of parts) {
+    if (part.type !== "literal") map[part.type] = part.value;
+  }
+  const hour = Math.min(23, Math.max(0, Number(map.hour ?? "0") || 0));
+  const minute = Math.min(59, Math.max(0, Number(map.minute ?? "0") || 0));
+  const totalMinutes = hour * 60 + minute;
+  return {
+    hour,
+    minute,
+    totalMinutes,
+    percent: Number(((totalMinutes / 1440) * 100).toFixed(2)),
   };
 }
 
@@ -223,19 +246,111 @@ function slotToHhMm(slotIdx: number): string {
   return `${hh}:${mm}`;
 }
 
-export function formatIntervalsText(slots: readonly SlotState[], target: "0" | "?" = "0"): string {
-  const ranges: string[] = [];
+export function extractMergedIntervals(
+  slots: readonly SlotState[],
+  target: "0" | "?" = "0",
+): MergedSlotInterval[] {
+  const result: MergedSlotInterval[] = [];
   let start: number | null = null;
   for (let i = 0; i <= SLOTS_PER_DAY; i++) {
     const matches = i < SLOTS_PER_DAY && slots[i] === target;
     if (matches && start === null) {
       start = i;
     } else if (!matches && start !== null) {
-      ranges.push(`${slotToHhMm(start)}-${slotToHhMm(i)}`);
+      result.push({
+        startSlot: start,
+        endSlot: i,
+        startLabel: slotToHhMm(start),
+        endLabel: slotToHhMm(i),
+        durationMinutes: (i - start) * SLOT_MINUTES,
+        kind: target,
+      });
       start = null;
     }
   }
-  return ranges.join(", ");
+  return result;
+}
+
+export function formatIntervalsText(slots: readonly SlotState[], target: "0" | "?" = "0"): string {
+  return extractMergedIntervals(slots, target)
+    .map((iv) => `${iv.startLabel}-${iv.endLabel}`)
+    .join(", ");
+}
+
+function parseRuntimeMinutes(entity: HassEntity | undefined): number | null {
+  if (!entity || entity.state === "unknown" || entity.state === "unavailable") {
+    return null;
+  }
+  const raw = entity.state.trim();
+  const hmMatch = /^(\d{1,3}):(\d{2})(?::\d{2})?$/.exec(raw);
+  if (hmMatch) {
+    return Number(hmMatch[1]) * 60 + Number(hmMatch[2]);
+  }
+  const num = Number.parseFloat(raw);
+  if (!Number.isFinite(num) || num < 0) return null;
+  const unit =
+    typeof entity.attributes.unit_of_measurement === "string"
+      ? entity.attributes.unit_of_measurement.trim().toLowerCase()
+      : "";
+  if (
+    unit === "h" ||
+    unit === "hr" ||
+    unit === "hrs" ||
+    unit.startsWith("hour") ||
+    unit.startsWith("год") ||
+    unit === "ч"
+  ) {
+    return Math.round(num * 60);
+  }
+  if (unit === "s" || unit === "sec" || unit.startsWith("сек")) {
+    return Math.round(num / 60);
+  }
+  return Math.round(num);
+}
+
+export function parseBatteryStatus(options: {
+  hass?: HomeAssistant;
+  socEntityId?: string;
+  runtimeEntityId?: string;
+  lowThreshold?: number;
+  nextOutageDurationMinutes?: number | null;
+}): BatteryStatusInfo | null {
+  const { hass, socEntityId, runtimeEntityId, lowThreshold, nextOutageDurationMinutes } = options;
+  if (!hass) return null;
+
+  let soc: number | null = null;
+  const socId = socEntityId?.trim();
+  if (socId && hass.states[socId]) {
+    const val = Number.parseFloat(hass.states[socId]?.state ?? "");
+    if (Number.isFinite(val)) {
+      soc = Math.max(0, Math.min(100, Math.round(val)));
+    }
+  }
+
+  const rtId = runtimeEntityId?.trim();
+  const runtimeMinutes = rtId ? parseRuntimeMinutes(hass.states[rtId]) : null;
+  if (soc === null && runtimeMinutes === null) {
+    return null;
+  }
+
+  const threshold = Number.isFinite(lowThreshold)
+    ? Math.max(1, Math.min(99, Number(lowThreshold)))
+    : 20;
+  const isLow =
+    (soc !== null && soc <= threshold) || (runtimeMinutes !== null && runtimeMinutes <= 30);
+  const willLastNextOutage =
+    runtimeMinutes !== null &&
+    nextOutageDurationMinutes !== null &&
+    nextOutageDurationMinutes !== undefined
+      ? runtimeMinutes >= nextOutageDurationMinutes
+      : null;
+
+  return {
+    soc,
+    runtimeMinutes,
+    isLow,
+    willLastNextOutage,
+  };
 }
 
 export function extractDaySchedule(
@@ -467,7 +582,10 @@ export function buildWeeklyMatrix(options: {
   );
   const tomorrowIso = addDaysIso(todayIso, 1);
 
-  const dayMap = new Map<string, SlotState[]>();
+  const dayMap = new Map<
+    string,
+    { slots: SlotState[]; hasSchedule: boolean; source: WeeklyDayRow["source"] }
+  >();
   const parsedEvents = options.events
     .map((ev) => {
       const kind = classifyCalendarSummary(ev.summary);
@@ -486,7 +604,11 @@ export function buildWeeklyMatrix(options: {
       options.todaySchedule.published &&
       options.todaySchedule.slots
     ) {
-      dayMap.set(dateIso, [...options.todaySchedule.slots]);
+      dayMap.set(dateIso, {
+        slots: [...options.todaySchedule.slots],
+        hasSchedule: true,
+        source: "today",
+      });
       continue;
     }
     if (
@@ -494,34 +616,47 @@ export function buildWeeklyMatrix(options: {
       options.tomorrowSchedule.published &&
       options.tomorrowSchedule.slots
     ) {
-      dayMap.set(dateIso, [...options.tomorrowSchedule.slots]);
+      dayMap.set(dateIso, {
+        slots: [...options.tomorrowSchedule.slots],
+        hasSchedule: true,
+        source: "tomorrow",
+      });
       continue;
     }
 
     const slots: SlotState[] = new Array<SlotState>(SLOTS_PER_DAY).fill("1");
+    let matchedAny = false;
     for (let s = 0; s < SLOTS_PER_DAY; s++) {
       const bounds = getSlotBoundsUtc(dateIso, s, tz);
       const midMs = (bounds.start.getTime() + bounds.end.getTime()) / 2;
       for (const ev of parsedEvents) {
         if (midMs >= ev.startMs && midMs < ev.endMs) {
+          matchedAny = true;
           if (ev.kind === "0" || slots[s] === "1") {
             slots[s] = ev.kind;
           }
         }
       }
     }
-    dayMap.set(dateIso, slots);
+    dayMap.set(dateIso, {
+      slots,
+      hasSchedule: matchedAny,
+      source: matchedAny ? "calendar" : "empty",
+    });
   }
 
   const rowsByWeekday: WeeklyDayRow[] = [];
   for (let offset = 0; offset < 7; offset++) {
     const dateIso = addDaysIso(todayIso, offset);
     const weekdayIndex = (todayWeekday + offset) % 7;
+    const entry = dayMap.get(dateIso);
     rowsByWeekday.push({
       weekdayIndex,
       dateIso,
       isToday: dateIso === todayIso || (offset === 0 && dateIso !== tomorrowIso),
-      slots: dayMap.get(dateIso) ?? new Array<SlotState>(SLOTS_PER_DAY).fill("1"),
+      hasSchedule: entry?.hasSchedule ?? false,
+      source: entry?.source ?? "empty",
+      slots: entry?.slots ?? new Array<SlotState>(SLOTS_PER_DAY).fill("1"),
     });
   }
 

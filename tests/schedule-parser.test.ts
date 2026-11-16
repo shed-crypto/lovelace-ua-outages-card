@@ -4,13 +4,16 @@ import {
   classifyCalendarSummary,
   computeActiveTiming,
   extractDaySchedule,
+  extractMergedIntervals,
   formatIntervalsText,
   getLocalDateAndSlot,
+  getMinuteOfDay,
+  parseBatteryStatus,
   parseSlotString,
   slotsFromIntervals,
   summarizeSlotHours,
 } from "../src/schedule-parser";
-import { HassEntity } from "../src/types";
+import { HassEntity, HomeAssistant } from "../src/types";
 
 function makeEntity(
   entityId: string,
@@ -222,5 +225,77 @@ describe("weekly calendar builder", () => {
     });
     expect(rows.map((r) => r.weekdayIndex)).toEqual([2, 3, 4, 5, 6, 0, 1]);
     expect(rows[0].isToday).toBe(true);
+    expect(rows[0].hasSchedule).toBe(false);
+    expect(rows[0].source).toBe("empty");
+  });
+
+  it("extracts merged intervals, minute offsets, and optional battery runtime status", () => {
+    const slots = parseSlotString("000" + "1".repeat(21) + "??" + "1".repeat(22));
+    if (!slots) throw new Error("Expected slots");
+    expect(extractMergedIntervals(slots, "0")).toEqual([
+      {
+        startSlot: 0,
+        endSlot: 3,
+        startLabel: "00:00",
+        endLabel: "01:30",
+        durationMinutes: 90,
+        kind: "0",
+      },
+    ]);
+    expect(extractMergedIntervals(slots, "?")).toHaveLength(1);
+
+    const minuteInfo = getMinuteOfDay(new Date("2026-11-16T10:00:00Z"), "Europe/Kyiv"); // 12:00 Kyiv
+    expect(minuteInfo.hour).toBe(12);
+    expect(minuteInfo.percent).toBe(50);
+
+    const hass: HomeAssistant = {
+      states: {
+        "sensor.soc": makeEntity("sensor.soc", "78", { unit_of_measurement: "%" }),
+        "sensor.rt_min": makeEntity("sensor.rt_min", "198", { unit_of_measurement: "min" }),
+        "sensor.rt_hr": makeEntity("sensor.rt_hr", "1.5", { unit_of_measurement: "h" }),
+        "sensor.rt_hm": makeEntity("sensor.rt_hm", "0:25"),
+      },
+      callApi: async <T>() => [] as T,
+    };
+
+    expect(
+      parseBatteryStatus({
+        hass,
+        socEntityId: "sensor.soc",
+        runtimeEntityId: "sensor.rt_min",
+        nextOutageDurationMinutes: 180,
+      }),
+    ).toEqual({
+      soc: 78,
+      runtimeMinutes: 198,
+      isLow: false,
+      willLastNextOutage: true,
+    });
+
+    expect(
+      parseBatteryStatus({
+        hass,
+        socEntityId: "sensor.soc",
+        runtimeEntityId: "sensor.rt_hr",
+        nextOutageDurationMinutes: 180,
+      }),
+    ).toEqual({
+      soc: 78,
+      runtimeMinutes: 90,
+      isLow: false,
+      willLastNextOutage: false,
+    });
+
+    expect(
+      parseBatteryStatus({
+        hass,
+        runtimeEntityId: "sensor.rt_hm",
+      }),
+    ).toEqual({
+      soc: null,
+      runtimeMinutes: 25,
+      isLow: true,
+      willLastNextOutage: null,
+    });
   });
 });

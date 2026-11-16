@@ -130,6 +130,7 @@ export function resolveDailyEntities(
   config: UaOutagesCardConfig,
 ): ResolvedEntities {
   const resolved: ResolvedEntities = {
+    calendar: config.calendar_entity || undefined,
     tomorrow: config.tomorrow_entity || undefined,
     group: config.group_entity || undefined,
     nextOutage: config.next_outage_entity || undefined,
@@ -171,6 +172,7 @@ export function resolveWeeklyEntities(
     today: config.today_entity || undefined,
     tomorrow: config.tomorrow_entity || undefined,
     group: config.group_entity || undefined,
+    connection: config.connection_entity || undefined,
     lastUpdate: config.last_update_entity || undefined,
   };
 

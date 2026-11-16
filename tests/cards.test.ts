@@ -376,38 +376,104 @@ describe("custom cards registration and DOM rendering", () => {
       events.push((ev as CustomEvent<{ config: Record<string, unknown> }>).detail.config);
     });
 
-    const selects = editor.shadowRoot?.querySelectorAll("select");
-    expect(selects && selects.length === 5).toBe(true);
-    const [styleSel, themeSel, layoutSel, langSel, gridSel] = Array.from(selects ?? []);
+    const select = (field: string): HTMLSelectElement => {
+      const el = editor.shadowRoot?.querySelector(
+        `select[data-field="${field}"]`,
+      ) as HTMLSelectElement | null;
+      if (!el) throw new Error(`Missing select ${field}`);
+      return el;
+    };
+    const input = (field: string): HTMLInputElement => {
+      const el = editor.shadowRoot?.querySelector(
+        `input[data-field="${field}"]`,
+      ) as HTMLInputElement | null;
+      if (!el) throw new Error(`Missing input ${field}`);
+      return el;
+    };
 
-    themeSel.value = "dtek_dark";
-    themeSel.dispatchEvent(new Event("change"));
-    layoutSel.value = "compact";
-    layoutSel.dispatchEvent(new Event("change"));
-    langSel.value = "en";
-    langSel.dispatchEvent(new Event("change"));
-    gridSel.value = "1x24";
-    gridSel.dispatchEvent(new Event("change"));
-    styleSel.value = "dtek";
-    styleSel.dispatchEvent(new Event("change"));
+    select("theme").value = "kiosk_dark";
+    select("theme").dispatchEvent(new Event("change"));
+    select("layout").value = "compact";
+    select("layout").dispatchEvent(new Event("change"));
+    select("language").value = "en";
+    select("language").dispatchEvent(new Event("change"));
+    select("modern_grid").value = "1x24";
+    select("modern_grid").dispatchEvent(new Event("change"));
+    select("view_mode").value = "switchable";
+    select("view_mode").dispatchEvent(new Event("change"));
+    await editor.updateComplete;
 
-    const textInputs = Array.from(editor.shadowRoot?.querySelectorAll("input[type='text']") ?? []);
-    (textInputs[1] as HTMLInputElement).value = "My Home";
-    textInputs[1].dispatchEvent(new Event("change"));
-    (textInputs[2] as HTMLInputElement).value = "sensor.battery_soc";
-    textInputs[2].dispatchEvent(new Event("change"));
+    select("weekly_view").value = "timeline_bars";
+    select("weekly_view").dispatchEvent(new Event("change"));
+    select("row_order").value = "rolling";
+    select("row_order").dispatchEvent(new Event("change"));
+    select("empty_days_mode").value = "show_all";
+    select("empty_days_mode").dispatchEvent(new Event("change"));
+    select("default_view").value = "week";
+    select("default_view").dispatchEvent(new Event("change"));
+    select("weekly_view").value = "auto";
+    select("weekly_view").dispatchEvent(new Event("change"));
+    await editor.updateComplete;
+    select("mobile_weekly_view").value = "compact_bars";
+    select("mobile_weekly_view").dispatchEvent(new Event("change"));
+    select("interval_display").value = "both";
+    select("interval_display").dispatchEvent(new Event("change"));
+    select("style").value = "timeline";
+    select("style").dispatchEvent(new Event("change"));
 
-    const checkboxes = Array.from(
-      editor.shadowRoot?.querySelectorAll("input[type='checkbox']") ?? [],
-    );
-    (checkboxes[0] as HTMLInputElement).checked = false;
-    checkboxes[0].dispatchEvent(new Event("change"));
+    input("title").value = "My Home";
+    input("title").dispatchEvent(new Event("change"));
+    input("battery_soc_entity").value = "sensor.battery_soc";
+    input("battery_soc_entity").dispatchEvent(new Event("change"));
+    input("battery_runtime_entity").value = "sensor.battery_runtime";
+    input("battery_runtime_entity").dispatchEvent(new Event("change"));
+    input("battery_low_threshold").value = "15";
+    input("battery_low_threshold").dispatchEvent(new Event("change"));
 
-    expect(events.length).toBeGreaterThanOrEqual(7);
+    for (const cb of [
+      "show_header",
+      "show_group_badge",
+      "show_region",
+      "show_connection",
+      "show_countdown",
+      "show_now_line",
+      "show_tomorrow",
+      "show_intervals_text",
+      "show_legend",
+    ]) {
+      input(cb).checked = false;
+      input(cb).dispatchEvent(new Event("change"));
+    }
+
+    for (const ov of [
+      "calendar_entity",
+      "tomorrow_entity",
+      "group_entity",
+      "next_outage_entity",
+      "outage_end_entity",
+      "scheduled_outage_entity",
+      "address_status_entity",
+      "restoration_entity",
+      "connection_entity",
+    ]) {
+      input(ov).value = `sensor.custom_${ov}`;
+      input(ov).dispatchEvent(new Event("change"));
+    }
+
+    expect(events.length).toBeGreaterThanOrEqual(20);
     const last = events[events.length - 1];
     expect(last.title).toBe("My Home");
+    expect(last.style).toBe("timeline");
+    expect(last.theme).toBe("kiosk_dark");
+    expect(last.view_mode).toBe("switchable");
+    expect(last.default_view).toBe("week");
+    expect(last.mobile_weekly_view).toBe("compact_bars");
+    expect(last.interval_display).toBe("both");
     expect(last.battery_soc_entity).toBe("sensor.battery_soc");
+    expect(last.battery_runtime_entity).toBe("sensor.battery_runtime");
+    expect(last.battery_low_threshold).toBe(15);
     expect(last.show_header).toBe(false);
+    expect(last.show_legend).toBe(false);
 
     const wEditor = document.createElement(
       "ua-outages-weekly-card-editor",
@@ -422,29 +488,204 @@ describe("custom cards registration and DOM rendering", () => {
       wEvents.push((ev as CustomEvent<{ config: Record<string, unknown> }>).detail.config);
     });
 
-    const wSelects = Array.from(wEditor.shadowRoot?.querySelectorAll("select") ?? []);
-    wSelects[0].value = "dtek_light";
-    wSelects[0].dispatchEvent(new Event("change"));
-    wSelects[1].value = "rolling";
-    wSelects[1].dispatchEvent(new Event("change"));
-    wSelects[2].value = "en";
-    wSelects[2].dispatchEvent(new Event("change"));
+    const wSelect = (field: string): HTMLSelectElement => {
+      const el = wEditor.shadowRoot?.querySelector(
+        `select[data-field="${field}"]`,
+      ) as HTMLSelectElement | null;
+      if (!el) throw new Error(`Missing weekly select ${field}`);
+      return el;
+    };
+    const wInput = (field: string): HTMLInputElement => {
+      const el = wEditor.shadowRoot?.querySelector(
+        `input[data-field="${field}"]`,
+      ) as HTMLInputElement | null;
+      if (!el) throw new Error(`Missing weekly input ${field}`);
+      return el;
+    };
 
-    const wToggle = wEditor.shadowRoot?.querySelector("input[type='checkbox']") as HTMLInputElement;
-    wToggle.checked = false;
-    wToggle.dispatchEvent(new Event("change"));
+    wSelect("theme").value = "oled_black";
+    wSelect("theme").dispatchEvent(new Event("change"));
+    wSelect("layout").value = "kiosk";
+    wSelect("layout").dispatchEvent(new Event("change"));
+    wSelect("mobile_weekly_view").value = "compact_bars";
+    wSelect("mobile_weekly_view").dispatchEvent(new Event("change"));
+    wSelect("row_order").value = "rolling";
+    wSelect("row_order").dispatchEvent(new Event("change"));
+    wSelect("language").value = "en";
+    wSelect("language").dispatchEvent(new Event("change"));
+    wSelect("empty_days_mode").value = "hide_unscheduled";
+    wSelect("empty_days_mode").dispatchEvent(new Event("change"));
+    wSelect("weekly_view").value = "timeline_bars";
+    wSelect("weekly_view").dispatchEvent(new Event("change"));
 
-    const wInputs = Array.from(wEditor.shadowRoot?.querySelectorAll("input[type='text']") ?? []);
-    (wInputs[2] as HTMLInputElement).value = "calendar.custom_outages";
-    wInputs[2].dispatchEvent(new Event("change"));
+    wInput("title").value = "Custom Weekly";
+    wInput("title").dispatchEvent(new Event("change"));
+    for (const cb of [
+      "show_header",
+      "show_group_badge",
+      "show_now_line",
+      "show_intervals_text",
+      "show_legend",
+    ]) {
+      wInput(cb).checked = false;
+      wInput(cb).dispatchEvent(new Event("change"));
+    }
+    for (const ov of [
+      "calendar_entity",
+      "today_entity",
+      "tomorrow_entity",
+      "group_entity",
+      "connection_entity",
+    ]) {
+      wInput(ov).value = `${ov.startsWith("cal") ? "calendar" : "sensor"}.custom_${ov}`;
+      wInput(ov).dispatchEvent(new Event("change"));
+    }
 
     expect(wEvents.at(-1)).toMatchObject({
-      theme: "dtek_light",
+      title: "Custom Weekly",
+      theme: "oled_black",
+      layout: "kiosk",
+      weekly_view: "timeline_bars",
       row_order: "rolling",
       language: "en",
+      empty_days_mode: "hide_unscheduled",
+      show_header: false,
       show_legend: false,
-      calendar_entity: "calendar.custom_outages",
+      calendar_entity: "calendar.custom_calendar_entity",
     });
+  });
+
+  it("renders continuous timeline style, interval chips, battery reserve, and Today/Week switcher", async () => {
+    const weekApi = makeCallApi([]);
+    const hass = makeFullHass({ callApi: weekApi.fn });
+    hass.states["sensor.battery_runtime"] = {
+      entity_id: "sensor.battery_runtime",
+      state: "198",
+      attributes: { unit_of_measurement: "min" },
+    };
+    hass.states["sensor.home_next_outage"] = {
+      entity_id: "sensor.home_next_outage",
+      state: new Date(Date.now() + 3_600_000).toISOString(),
+      attributes: { duration_minutes: 120 },
+    };
+    if (hass.entities) {
+      hass.entities["sensor.home_next_outage"] = {
+        entity_id: "sensor.home_next_outage",
+        device_id: "dev_home",
+        translation_key: "next_outage",
+      };
+    }
+    if (hass.states["sensor.home_outages_tomorrow"]) {
+      hass.states["sensor.home_outages_tomorrow"].attributes.published = true;
+      hass.states["sensor.home_outages_tomorrow"].attributes.schedule = "1".repeat(48);
+    }
+
+    const card = document.createElement("ua-outages-card") as UaOutagesCard;
+    card.hass = hass;
+    card.setConfig({
+      type: "custom:ua-outages-card",
+      entity: "sensor.home_outages_today",
+      style: "timeline",
+      theme: "kiosk_dark",
+      view_mode: "switchable",
+      default_view: "today",
+      battery_soc_entity: "sensor.battery_soc",
+      battery_runtime_entity: "sensor.battery_runtime",
+      language: "uk",
+    });
+    document.body.appendChild(card);
+    await card.updateComplete;
+
+    expect(card.getAttribute("data-theme")).toBe("kiosk_dark");
+    const slots = card.shadowRoot?.querySelectorAll(".tl-slot") ?? [];
+    expect(slots.length).toBeGreaterThanOrEqual(48);
+    (slots[0] as HTMLButtonElement).dispatchEvent(new Event("mouseenter"));
+    (slots[1] as HTMLButtonElement).click();
+    await card.updateComplete;
+    expect(card.shadowRoot?.querySelector(".hover-readout")?.textContent).toContain("00:00–01:00");
+    card.shadowRoot?.querySelector(".tl-box")?.dispatchEvent(new Event("mouseleave"));
+    await card.updateComplete;
+
+    expect(card.shadowRoot?.querySelector(".tl-now-line")).not.toBeNull();
+    expect(card.shadowRoot?.querySelectorAll(".iv-chip").length).toBeGreaterThanOrEqual(2);
+    expect(card.shadowRoot?.querySelector(".iv-chip.ok")?.textContent).toContain("Відключень");
+    expect(card.shadowRoot?.querySelector(".battery-pill")?.textContent).toContain("вистачить");
+    // view_mode=switchable does not fetch calendar until user clicks Week tab.
+    expect(weekApi.spy).toHaveBeenCalledTimes(0);
+
+    // Switch to Week tab and test weekly bar slot selection & return to Today tab.
+    const tabs = card.shadowRoot?.querySelectorAll(".view-tab") as NodeListOf<HTMLButtonElement>;
+    expect(tabs).toHaveLength(2);
+    tabs[1].click();
+    await card.updateComplete;
+    await card.updateComplete;
+
+    expect(weekApi.spy).toHaveBeenCalledTimes(1);
+    const barSlots = card.shadowRoot?.querySelectorAll(".wbar-wrap .tl-slot") ?? [];
+    expect(barSlots.length).toBeGreaterThan(0);
+    (barSlots[2] as HTMLButtonElement).click();
+    await card.updateComplete;
+    card.shadowRoot?.querySelector(".wbar-wrap")?.dispatchEvent(new Event("mouseleave"));
+    await card.updateComplete;
+    expect(card.shadowRoot?.querySelector(".wbar-now-line")).not.toBeNull();
+
+    tabs[0].click();
+    await card.updateComplete;
+    expect(card.shadowRoot?.querySelector(".tl-box")).not.toBeNull();
+  });
+
+  it("supports weekly list, hide_unscheduled, mobile bars, and disabled weekly plan notice", async () => {
+    const hass = makeFullHass();
+    if (hass.states["sensor.home_connection"]) {
+      hass.states["sensor.home_connection"].attributes.weekly_schedule_shown = false;
+    }
+
+    const weekly = document.createElement("ua-outages-weekly-card") as UaOutagesWeeklyCard;
+    weekly.hass = hass;
+    weekly.setConfig({
+      type: "custom:ua-outages-weekly-card",
+      entity: "calendar.home_outages",
+      theme: "oled_black",
+      weekly_view: "list",
+      empty_days_mode: "hide_unscheduled",
+      language: "uk",
+    });
+    document.body.appendChild(weekly);
+    await weekly.updateComplete;
+
+    expect(weekly.getAttribute("data-theme")).toBe("oled_black");
+    expect(weekly.shadowRoot?.querySelector(".notice-banner")?.textContent).toContain("вимкнено");
+    expect(weekly.shadowRoot?.querySelectorAll(".wlist-card")).toHaveLength(1);
+    expect(weekly.shadowRoot?.querySelector(".wlist-today-tag")).not.toBeNull();
+    const listSlot = weekly.shadowRoot?.querySelector(".wlist .tl-slot") as HTMLButtonElement;
+    listSlot.click();
+    await weekly.updateComplete;
+    weekly.shadowRoot?.querySelector(".wlist")?.dispatchEvent(new Event("mouseleave"));
+    await weekly.updateComplete;
+
+    // Also test auto responsive with compact_bars mobile view & view_mode="both".
+    weekly.setConfig({
+      type: "custom:ua-outages-weekly-card",
+      entity: "calendar.home_outages",
+      weekly_view: "auto",
+      mobile_weekly_view: "compact_bars",
+      empty_days_mode: "compact_empty",
+    });
+    await weekly.updateComplete;
+    expect(weekly.shadowRoot?.querySelector(".weekly-mobile-view .wbar-wrap")).not.toBeNull();
+
+    const bothCard = document.createElement("ua-outages-card") as UaOutagesCard;
+    bothCard.hass = hass;
+    bothCard.setConfig({
+      type: "custom:ua-outages-card",
+      entity: "sensor.home_outages_today",
+      style: "modern",
+      view_mode: "both",
+    });
+    document.body.appendChild(bothCard);
+    await bothCard.updateComplete;
+    await bothCard.updateComplete;
+    expect(bothCard.shadowRoot?.querySelector(".week-divider")).not.toBeNull();
   });
 
   it("deduplicates group name in header title and keeps today outage color distinct from possible", async () => {

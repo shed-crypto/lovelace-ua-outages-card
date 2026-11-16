@@ -2,29 +2,28 @@ import { LitElement, html, nothing, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { findDefaultPrimaryEntity, resolveWeeklyEntities } from "./discovery";
 import { getStrings, resolveLanguage } from "./localize";
-import {
-  formatHourReadout,
-  renderDtekHeaderRow,
-  renderDtekHourCell,
-  renderDtekLegend,
-  resolveActiveTheme,
-} from "./render-helpers";
+import { resolveActiveTheme } from "./render-helpers";
 import {
   addDaysIso,
   buildWeeklyMatrix,
   DEFAULT_TIMEZONE,
   extractDaySchedule,
-  formatDateShort,
   getLocalDateAndSlot,
+  getMinuteOfDay,
 } from "./schedule-parser";
 import { cardStyles } from "./styles";
 import {
   CalendarApiEvent,
+  CardLayout,
+  EmptyDaysMode,
   HomeAssistant,
   LovelaceGridOptions,
+  MobileWeeklyViewMode,
   UaOutagesWeeklyCardConfig,
   WeeklyDayRow,
+  WeeklyViewMode,
 } from "./types";
+import { fetchCalendarWeek, renderWeeklyScheduleContent } from "./weekly-renderer";
 
 const CALENDAR_CACHE_TTL_MS = 300_000;
 
@@ -61,8 +60,16 @@ export class UaOutagesWeeklyCard extends LitElement {
     }
     this._config = {
       theme: "auto",
+      layout: "full",
+      weekly_view: "auto",
+      mobile_weekly_view: "list",
+      empty_days_mode: "compact_empty",
       row_order: "mon_sun",
       language: "auto",
+      show_header: true,
+      show_group_badge: true,
+      show_now_line: true,
+      show_intervals_text: true,
       show_legend: true,
       ...config,
     };
@@ -107,11 +114,14 @@ export class UaOutagesWeeklyCard extends LitElement {
     // Start 1 day earlier in UTC so Europe/Kyiv 00:00-03:00 slots are never clipped.
     const startIso = `${addDaysIso(todayIso, -1)}T00:00:00Z`;
     const endIso = `${addDaysIso(todayIso, 8)}T23:59:59Z`;
-    const apiPath = `calendars/${encodeURIComponent(calId)}?start=${encodeURIComponent(startIso)}&end=${encodeURIComponent(endIso)}`;
 
     try {
-      const events = await this.hass.callApi<CalendarApiEvent[]>("GET", apiPath);
-      this._events = Array.isArray(events) ? events : [];
+      this._events = await fetchCalendarWeek({
+        hass: this.hass,
+        calendarId: calId,
+        startIso,
+        endIso,
+      });
       this._lastFetchKey = cacheKey;
       this._lastFetchMs = Date.now();
     } catch {
@@ -132,7 +142,9 @@ export class UaOutagesWeeklyCard extends LitElement {
     }
 
     const theme = resolveActiveTheme(cfg.theme, Boolean(hass.themes?.darkMode));
+    const layout: CardLayout = cfg.layout ?? "full";
     this.setAttribute("data-theme", theme);
+    this.setAttribute("data-layout", layout);
 
     const entities = resolveWeeklyEntities(hass, cfg);
     if (!entities.calendar && !entities.today) {
@@ -165,82 +177,63 @@ export class UaOutagesWeeklyCard extends LitElement {
       groupEntity && groupEntity.state !== "unknown" && groupEntity.state !== "unavailable"
         ? groupEntity.state
         : null;
+    const connEntity = entities.connection ? hass.states[entities.connection] : undefined;
+    const weeklyPlanDisabled = connEntity?.attributes.weekly_schedule_shown === false;
 
+    const minuteInfo = getMinuteOfDay(now, tz);
     const nowHour = Math.floor(nowSlot / 2);
-    const todayRowIdx = Math.max(
-      0,
-      rows.findIndex((r) => r.isToday),
-    );
-    const activeDayIdx = this._hoverCell?.dayIdx ?? todayRowIdx;
-    const activeHour = this._hoverCell?.hour ?? nowHour;
-    const activeRow = rows[activeDayIdx];
-    const readout = activeRow
-      ? formatHourReadout({
-          slots: activeRow.slots,
-          hour: activeHour,
-          lang,
-          prefix: `${t.weekdays[activeRow.weekdayIndex]} ${formatDateShort(activeRow.dateIso)}`,
-          tag: activeRow.isToday && activeHour === nowHour ? t.nowTag : undefined,
-        })
-      : "";
+    const nowTimeBadge = `${String(minuteInfo.hour).padStart(2, "0")}:${String(minuteInfo.minute).padStart(2, "0")}`;
 
-    const hours = Array.from({ length: 24 }, (_, h) => h);
+    const showHeader = cfg.show_header !== false;
+    const showGroupBadge = cfg.show_group_badge !== false;
+    const weeklyView: WeeklyViewMode = cfg.weekly_view ?? "auto";
+    const mobileWeeklyView: MobileWeeklyViewMode = cfg.mobile_weekly_view ?? "list";
+    const emptyDaysMode: EmptyDaysMode = cfg.empty_days_mode ?? "compact_empty";
+    const preferBars = theme === "kiosk_dark" || theme === "oled_black";
 
     return html`
       <ha-card>
         <div class="wrap">
-          <div class="header">
-            <div class="header-left">
-              <div class="header-title-row">
-                <span class="title">${cfg.title || t.weeklyDefaultTitle}</span>
-                ${
-                  groupVal
-                    ? html`<span class="badge-group dtek-pill">${t.groupPrefix} ${groupVal}</span>`
-                    : nothing
-                }
-              </div>
-            </div>
-          </div>
           ${
-            readout
-              ? html`<div class="readout-row"><span class="hover-readout">${readout}</span></div>`
+            showHeader
+              ? html`
+                  <div class="header">
+                    <div class="header-left">
+                      <div class="header-title-row">
+                        <span class="title">${cfg.title || t.weeklyDefaultTitle}</span>
+                        ${
+                          showGroupBadge && groupVal
+                            ? html`<span class="badge-group dtek-pill"
+                                >${t.groupPrefix} ${groupVal}</span
+                              >`
+                            : nothing
+                        }
+                      </div>
+                    </div>
+                  </div>
+                `
               : nothing
           }
-
-          <div class="table-scroll" @mouseleave=${() => (this._hoverCell = null)}>
-            <table class="dtek-table">
-              ${renderDtekHeaderRow(t.daysHeader)}
-              <tbody>
-                ${rows.map(
-                  (row, dayIdx) => html`
-                    <tr class=${row.isToday ? "is-today-row" : ""}>
-                      <td class="dtek-day-cell ${row.isToday ? "today-highlight" : ""}">
-                        ${t.weekdays[row.weekdayIndex]}
-                      </td>
-                      ${hours.map((h) =>
-                        renderDtekHourCell({
-                          slots: row.slots,
-                          hour: h,
-                          isNowHour: row.isToday && h === nowHour,
-                          highlightRow: row.isToday,
-                          compactRow: true,
-                          onSelect: (hour) => {
-                            this._hoverCell = { dayIdx, hour };
-                          },
-                        }),
-                      )}
-                    </tr>
-                  `,
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          ${
-            cfg.show_legend !== false
-              ? html`<div class="footer">${renderDtekLegend(t, true)}</div>`
-              : nothing
-          }
+          ${renderWeeklyScheduleContent({
+            rows,
+            t,
+            lang,
+            weeklyView,
+            mobileWeeklyView,
+            emptyDaysMode,
+            preferBarsOnDesktop: preferBars,
+            nowHour,
+            nowPercent: minuteInfo.percent,
+            nowTimeBadge,
+            hoverCell: this._hoverCell,
+            onHover: (cell) => {
+              this._hoverCell = cell;
+            },
+            showNowLine: cfg.show_now_line !== false,
+            showIntervals: cfg.show_intervals_text !== false,
+            showLegend: cfg.show_legend !== false,
+            weeklyPlanDisabled,
+          })}
         </div>
       </ha-card>
     `;

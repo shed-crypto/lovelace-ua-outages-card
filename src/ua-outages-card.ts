@@ -106,22 +106,17 @@ export class UaOutagesCard extends LitElement {
       interval_display: "auto",
       weekly_view: "auto",
       mobile_weekly_view: "list",
-      empty_days_mode: "compact_empty",
+      empty_days_mode: "auto",
       row_order: "mon_sun",
       language: "auto",
       show_header: true,
       show_group_badge: true,
-      show_region: true,
       show_connection: true,
       show_countdown: true,
-      show_address_alert: true,
       show_readout: true,
       show_now_line: true,
       show_today: true,
-      show_tomorrow: true,
       show_possible: true,
-      show_intervals_text: true,
-      show_legend: true,
       ...config,
     };
     this._hoverHour = null;
@@ -358,11 +353,12 @@ export class UaOutagesCard extends LitElement {
     t: TranslationStrings;
     today: DayScheduleData;
     tomorrow: DayScheduleData;
-    nowHour: number;
+    nowHour: number | null;
+    nowMinuteRatio: number | null;
     showToday: boolean;
     showTomorrow: boolean;
   }): TemplateResult | typeof nothing {
-    const { t, today, tomorrow, nowHour, showToday, showTomorrow } = options;
+    const { t, today, tomorrow, nowHour, nowMinuteRatio, showToday, showTomorrow } = options;
     if (!showToday && !showTomorrow) return nothing;
     const hours = Array.from({ length: 24 }, (_, h) => h);
     const onSelect = (h: number): void => {
@@ -374,20 +370,25 @@ export class UaOutagesCard extends LitElement {
     return html`
       <div class="table-scroll" @mouseleave=${() => (this._hoverHour = null)}>
         <table class="dtek-table">
-          ${renderDtekHeaderRow(t.hoursHeader)}
+          ${renderDtekHeaderRow(t.hoursHeader, nowHour)}
           <tbody>
             ${
               showToday
                 ? html`
-                    <tr>
-                      <td class="dtek-day-cell">${t.today} ${formatDateShort(today.dateIso)}</td>
+                    <tr class="is-today-row">
+                      <td class="dtek-day-cell today-highlight">
+                        ${t.today} ${formatDateShort(today.dateIso)}
+                      </td>
                       ${
                         todaySlots
                           ? hours.map((h) =>
                               renderDtekHourCell({
                                 slots: todaySlots,
                                 hour: h,
-                                isNowHour: h === nowHour,
+                                isNowCol: nowHour !== null && h === nowHour,
+                                isNowHour: nowHour !== null && h === nowHour,
+                                nowMinuteRatio:
+                                  nowHour !== null && h === nowHour ? nowMinuteRatio : null,
                                 onSelect,
                               }),
                             )
@@ -410,6 +411,7 @@ export class UaOutagesCard extends LitElement {
                               renderDtekHourCell({
                                 slots: tomorrowSlots,
                                 hour: h,
+                                isNowCol: nowHour !== null && h === nowHour,
                                 isNowHour: false,
                               }),
                             )
@@ -617,17 +619,20 @@ export class UaOutagesCard extends LitElement {
 
     const showHeader = cfg.show_header !== false;
     const showGroupBadge = cfg.show_group_badge !== false;
-    const showRegion = !isCompact && cfg.show_region !== false;
+    const resolveFullVis = (val: boolean | undefined): boolean =>
+      val !== undefined ? val : !isCompact;
+    const showRegion = resolveFullVis(cfg.show_region);
     const showConnection = cfg.show_connection !== false;
     const showCountdown = cfg.show_countdown !== false;
-    const showAddressAlert = !isCompact && cfg.show_address_alert !== false;
+    const showAddressAlert = resolveFullVis(cfg.show_address_alert);
     const showReadout = cfg.show_readout !== false;
     const showNowLine = cfg.show_now_line !== false;
     const showToday = cfg.show_today !== false;
-    const showTomorrow = !isCompact && cfg.show_tomorrow !== false;
+    const showTomorrow = resolveFullVis(cfg.show_tomorrow);
+    const showIntervalsPref = resolveFullVis(cfg.show_intervals_text);
     const rawIntervalDisplay: IntervalDisplayMode = cfg.interval_display ?? "auto";
     const resolvedIntervalMode =
-      cfg.show_intervals_text === false || isCompact || rawIntervalDisplay === "none"
+      !showIntervalsPref || rawIntervalDisplay === "none"
         ? "none"
         : rawIntervalDisplay === "auto"
           ? style === "timeline"
@@ -636,7 +641,7 @@ export class UaOutagesCard extends LitElement {
           : rawIntervalDisplay;
     const showChips = resolvedIntervalMode === "chips" || resolvedIntervalMode === "both";
     const showSummaryText = resolvedIntervalMode === "text" || resolvedIntervalMode === "both";
-    const showLegend = !isCompact && cfg.show_legend !== false;
+    const showLegend = resolveFullVis(cfg.show_legend);
 
     const groupVal =
       groupEntity && groupEntity.state !== "unknown" && groupEntity.state !== "unavailable"
@@ -689,7 +694,7 @@ export class UaOutagesCard extends LitElement {
 
     const weeklyView: WeeklyViewMode = cfg.weekly_view ?? "auto";
     const mobileWeeklyView: MobileWeeklyViewMode = cfg.mobile_weekly_view ?? "list";
-    const emptyDaysMode: EmptyDaysMode = cfg.empty_days_mode ?? "compact_empty";
+    const emptyDaysMode: EmptyDaysMode = cfg.empty_days_mode ?? "auto";
 
     return html`
       <ha-card>
@@ -787,7 +792,8 @@ export class UaOutagesCard extends LitElement {
                           t,
                           today,
                           tomorrow,
-                          nowHour,
+                          nowHour: showNowLine ? nowHour : null,
+                          nowMinuteRatio: showNowLine ? minuteInfo.minute / 60 : null,
                           showToday,
                           showTomorrow,
                         })
@@ -813,7 +819,7 @@ export class UaOutagesCard extends LitElement {
                                         : this._renderModernTileGrid({
                                             slots: today.slots,
                                             gridMode: cfg.modern_grid ?? "2x12",
-                                            nowSlot,
+                                            nowSlot: showNowLine ? nowSlot : -1,
                                             interactive: true,
                                           })
                                       : html`<div class="tmr-unpublished">${t.noSchedule}</div>`
@@ -898,6 +904,7 @@ export class UaOutagesCard extends LitElement {
                       preferBarsOnDesktop:
                         style === "timeline" || theme === "kiosk_dark" || theme === "oled_black",
                       nowHour,
+                      nowMinuteRatio: minuteInfo.minute / 60,
                       nowPercent: minuteInfo.percent,
                       nowTimeBadge,
                       hoverCell: this._weeklyHoverCell,

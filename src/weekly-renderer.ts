@@ -10,7 +10,7 @@ import {
   renderTimelineLegend,
   renderTimelineTrack,
 } from "./render-helpers";
-import { formatDateShort, summarizeSlotHours } from "./schedule-parser";
+import { formatDateShort, extractMergedIntervals, summarizeSlotHours } from "./schedule-parser";
 import {
   CalendarApiEvent,
   EmptyDaysMode,
@@ -47,31 +47,77 @@ export async function fetchCalendarWeek(options: {
   return Array.isArray(events) ? events : [];
 }
 
+function renderWeeklyIntervalsSummary(
+  rows: readonly WeeklyDayRow[],
+  t: TranslationStrings,
+): TemplateResult | typeof nothing {
+  const activeRows = rows.filter(
+    (r) => r.isToday || r.source === "tomorrow" || extractMergedIntervals(r.slots, "0").length > 0,
+  );
+  if (activeRows.length === 0) return nothing;
+  return html`
+    <div class="weekly-intervals">
+      ${activeRows.map((row) => {
+        const offs = extractMergedIntervals(row.slots, "0");
+        const hours = summarizeSlotHours(row.slots);
+        return html`
+          <div class="weekly-iv-row">
+            <span class="weekly-iv-day">
+              ${t.weekdays[row.weekdayIndex]} ${formatDateShort(row.dateIso)}:
+            </span>
+            ${
+              offs.length > 0
+                ? html`
+                    ${offs.map(
+                      (iv) => html`<span class="iv-chip">+ ${iv.startLabel}–${iv.endLabel}</span>`,
+                    )}
+                    <span class="weekly-iv-hours"
+                      >(${hours.outageHours.toFixed(1)} ${t.hourUnit})</span
+                    >
+                  `
+                : html`<span class="iv-chip ok">${t.noOutagesToday}</span>`
+            }
+          </div>
+        `;
+      })}
+    </div>
+  `;
+}
+
 function renderWeeklyTable(options: {
   allRows: readonly WeeklyDayRow[];
   rows: readonly WeeklyDayRow[];
+  collapsed: readonly WeeklyDayRow[];
+  emptyDaysMode: EmptyDaysMode;
   t: TranslationStrings;
-  nowHour: number;
+  nowHour: number | null;
+  nowMinuteRatio: number | null;
+  showIntervals: boolean;
   onHover: (cell: { dayIdx: number; hour: number } | null) => void;
 }): TemplateResult {
+  const { allRows, rows, collapsed, emptyDaysMode, t, nowHour, nowMinuteRatio, showIntervals } =
+    options;
   const hours = Array.from({ length: 24 }, (_, h) => h);
   return html`
     <div class="table-scroll" @mouseleave=${() => options.onHover(null)}>
       <table class="dtek-table">
-        ${renderDtekHeaderRow(options.t.daysHeader)}
+        ${renderDtekHeaderRow(t.daysHeader, nowHour)}
         <tbody>
-          ${options.rows.map((row) => {
-            const fullIdx = Math.max(0, options.allRows.indexOf(row));
+          ${rows.map((row) => {
+            const fullIdx = Math.max(0, allRows.indexOf(row));
             return html`
               <tr class=${row.isToday ? "is-today-row" : ""}>
                 <td class="dtek-day-cell ${row.isToday ? "today-highlight" : ""}">
-                  ${options.t.weekdays[row.weekdayIndex]}
+                  ${t.weekdays[row.weekdayIndex]}
                 </td>
                 ${hours.map((h) =>
                   renderDtekHourCell({
                     slots: row.slots,
                     hour: h,
-                    isNowHour: row.isToday && h === options.nowHour,
+                    isNowCol: nowHour !== null && h === nowHour,
+                    isNowHour: nowHour !== null && row.isToday && h === nowHour,
+                    nowMinuteRatio:
+                      nowHour !== null && row.isToday && h === nowHour ? nowMinuteRatio : null,
                     highlightRow: row.isToday,
                     compactRow: true,
                     onSelect: (hour) => options.onHover({ dayIdx: fullIdx, hour }),
@@ -83,18 +129,33 @@ function renderWeeklyTable(options: {
         </tbody>
       </table>
     </div>
+    ${showIntervals ? renderWeeklyIntervalsSummary(rows, t) : nothing}
+    ${
+      emptyDaysMode === "compact_empty" && collapsed.length > 0
+        ? html`
+            <div class="collapsed-days">
+              ${t.collapsedDaysPrefix}:
+              ${collapsed.map((r) => `${t.weekdaysShort[r.weekdayIndex]} ${formatDateShort(r.dateIso)}`).join(", ")}
+            </div>
+          `
+        : nothing
+    }
   `;
 }
 
 function renderWeeklyBars(options: {
   allRows: readonly WeeklyDayRow[];
   rows: readonly WeeklyDayRow[];
+  collapsed: readonly WeeklyDayRow[];
+  emptyDaysMode: EmptyDaysMode;
   t: TranslationStrings;
   nowPercent: number | null;
   nowTimeBadge: string;
+  showIntervals: boolean;
   onHover: (cell: { dayIdx: number; hour: number } | null) => void;
 }): TemplateResult {
-  const { allRows, rows, t, nowPercent, nowTimeBadge } = options;
+  const { allRows, rows, collapsed, emptyDaysMode, t, nowPercent, nowTimeBadge, showIntervals } =
+    options;
   return html`
     <div class="wbar-wrap" @mouseleave=${() => options.onHover(null)}>
       <div class="wbar-axis-row">
@@ -159,6 +220,17 @@ function renderWeeklyBars(options: {
         }
       </div>
     </div>
+    ${showIntervals ? renderWeeklyIntervalsSummary(rows, t) : nothing}
+    ${
+      emptyDaysMode === "compact_empty" && collapsed.length > 0
+        ? html`
+            <div class="collapsed-days">
+              ${t.collapsedDaysPrefix}:
+              ${collapsed.map((r) => `${t.weekdaysShort[r.weekdayIndex]} ${formatDateShort(r.dateIso)}`).join(", ")}
+            </div>
+          `
+        : nothing
+    }
   `;
 }
 
@@ -210,7 +282,7 @@ function renderWeeklyList(options: {
         `;
       })}
       ${
-        emptyDaysMode === "compact_empty" && collapsed.length > 0
+        (emptyDaysMode === "compact_empty" || emptyDaysMode === "auto") && collapsed.length > 0
           ? html`
               <div class="collapsed-days">
                 ${t.collapsedDaysPrefix}:
@@ -232,6 +304,7 @@ export function renderWeeklyScheduleContent(options: {
   emptyDaysMode: EmptyDaysMode;
   preferBarsOnDesktop: boolean;
   nowHour: number;
+  nowMinuteRatio?: number | null;
   nowPercent: number | null;
   nowTimeBadge: string;
   hoverCell: { dayIdx: number; hour: number } | null;
@@ -252,6 +325,7 @@ export function renderWeeklyScheduleContent(options: {
     emptyDaysMode,
     preferBarsOnDesktop,
     nowHour,
+    nowMinuteRatio,
     nowPercent,
     nowTimeBadge,
     hoverCell,
@@ -265,7 +339,8 @@ export function renderWeeklyScheduleContent(options: {
   } = options;
 
   const { visible, collapsed } = filterVisibleWeeklyRows(rows, emptyDaysMode);
-  const matrixRows = emptyDaysMode === "hide_unscheduled" ? visible : rows;
+  const matrixRows =
+    emptyDaysMode === "compact_empty" || emptyDaysMode === "hide_unscheduled" ? visible : rows;
   const todayIdx = Math.max(
     0,
     rows.findIndex((r) => r.isToday),
@@ -285,6 +360,8 @@ export function renderWeeklyScheduleContent(options: {
     : "";
 
   const effectiveNowPct = showNowLine ? nowPercent : null;
+  const effectiveNowHour = showNowLine ? nowHour : null;
+  const effectiveNowRatio = showNowLine ? (nowMinuteRatio ?? null) : null;
   const usesBarsLegend =
     weeklyView === "timeline_bars" ||
     weeklyView === "list" ||
@@ -292,14 +369,27 @@ export function renderWeeklyScheduleContent(options: {
 
   let body: TemplateResult;
   if (weeklyView === "table") {
-    body = renderWeeklyTable({ allRows: rows, rows: matrixRows, t, nowHour, onHover });
+    body = renderWeeklyTable({
+      allRows: rows,
+      rows: matrixRows,
+      collapsed,
+      emptyDaysMode,
+      t,
+      nowHour: effectiveNowHour,
+      nowMinuteRatio: effectiveNowRatio,
+      showIntervals,
+      onHover,
+    });
   } else if (weeklyView === "timeline_bars") {
     body = renderWeeklyBars({
       allRows: rows,
       rows: matrixRows,
+      collapsed,
+      emptyDaysMode,
       t,
       nowPercent: effectiveNowPct,
       nowTimeBadge,
+      showIntervals,
       onHover,
     });
   } else if (weeklyView === "list") {
@@ -318,21 +408,37 @@ export function renderWeeklyScheduleContent(options: {
       ? renderWeeklyBars({
           allRows: rows,
           rows: matrixRows,
+          collapsed,
+          emptyDaysMode,
           t,
           nowPercent: effectiveNowPct,
           nowTimeBadge,
+          showIntervals,
           onHover,
         })
-      : renderWeeklyTable({ allRows: rows, rows: matrixRows, t, nowHour, onHover });
+      : renderWeeklyTable({
+          allRows: rows,
+          rows: matrixRows,
+          collapsed,
+          emptyDaysMode,
+          t,
+          nowHour: effectiveNowHour,
+          nowMinuteRatio: effectiveNowRatio,
+          showIntervals,
+          onHover,
+        });
 
     const mobileNode =
       mobileWeeklyView === "compact_bars"
         ? renderWeeklyBars({
             allRows: rows,
             rows: matrixRows,
+            collapsed,
+            emptyDaysMode,
             t,
             nowPercent: effectiveNowPct,
             nowTimeBadge,
+            showIntervals,
             onHover,
           })
         : renderWeeklyList({

@@ -89,6 +89,7 @@ export interface TranslationStrings {
     mobileWeeklyList: string;
     mobileWeeklyBars: string;
     emptyDaysMode: string;
+    emptyDaysAuto: string;
     emptyDaysCompact: string;
     emptyDaysHide: string;
     emptyDaysShowAll: string;
@@ -223,6 +224,7 @@ const UK: TranslationStrings = {
     mobileWeeklyList: "Список з об'єднаними інтервалами",
     mobileWeeklyBars: "7 суцільних кольорових смуг",
     emptyDaysMode: "Порожні дні без прогнозу",
+    emptyDaysAuto: "Авто (7 днів на ПК, згорнуті на телефоні)",
     emptyDaysCompact: "Згорнути порожні дні в один рядок",
     emptyDaysHide: "Приховати порожні дні",
     emptyDaysShowAll: "Показувати всі 7 днів",
@@ -243,7 +245,7 @@ const UK: TranslationStrings = {
     showCountdown: "Показувати живий таймер",
     showAddressAlert: "Показувати алерт за адресою",
     showReadout: "Показувати деталі обраної години",
-    showNowLine: "Показувати жовту лінію «зараз»",
+    showNowLine: "Показувати підсвітку / лінію «зараз»",
     showToday: "Показувати блок сьогодні",
     showTomorrow: "Показувати блок завтра",
     showPossible: "Показувати можливі відключення (сіра зона)",
@@ -357,6 +359,7 @@ const EN: TranslationStrings = {
     mobileWeeklyList: "Day list with merged intervals",
     mobileWeeklyBars: "7 continuous color bars",
     emptyDaysMode: "Empty unscheduled days",
+    emptyDaysAuto: "Auto (7 days desktop, collapsed mobile)",
     emptyDaysCompact: "Collapse empty days into one line",
     emptyDaysHide: "Hide unscheduled days",
     emptyDaysShowAll: "Always show all 7 days",
@@ -377,7 +380,7 @@ const EN: TranslationStrings = {
     showCountdown: "Show live countdown",
     showAddressAlert: "Show address outage alert",
     showReadout: "Show selected hour readout",
-    showNowLine: "Show yellow 'now' cursor line",
+    showNowLine: "Show 'now' highlight / cursor line",
     showToday: "Show today block",
     showTomorrow: "Show tomorrow block",
     showPossible: "Show possible outages (grey zone)",
@@ -491,6 +494,7 @@ const RU: TranslationStrings = {
     mobileWeeklyList: "Список с объединенными интервалами",
     mobileWeeklyBars: "7 сплошных цветных полос",
     emptyDaysMode: "Пустые дни без прогноза",
+    emptyDaysAuto: "Авто (7 дней на ПК, свернутые на телефоне)",
     emptyDaysCompact: "Свернуть пустые дни в одну строку",
     emptyDaysHide: "Скрыть пустые дни",
     emptyDaysShowAll: "Показывать все 7 дней",
@@ -511,7 +515,7 @@ const RU: TranslationStrings = {
     showCountdown: "Показывать живой таймер",
     showAddressAlert: "Показывать алерт по адресу",
     showReadout: "Показывать детали выбранного часа",
-    showNowLine: "Показывать желтую линию «сейчас»",
+    showNowLine: "Показывать подсветку / линию «сейчас»",
     showToday: "Показывать блок сегодня",
     showTomorrow: "Показывать блок завтра",
     showPossible: "Показывать возможные отключения (серая зона)",

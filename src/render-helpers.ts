@@ -54,7 +54,10 @@ export function cleanAutoTitle(options: {
   return cleaned || fallbackTitle;
 }
 
-export function renderDtekHeaderRow(cornerLabel: string): TemplateResult {
+export function renderDtekHeaderRow(
+  cornerLabel: string,
+  nowHour: number | null = null,
+): TemplateResult {
   const hours = Array.from({ length: 24 }, (_, h) => h);
   return html`
     <thead>
@@ -62,7 +65,7 @@ export function renderDtekHeaderRow(cornerLabel: string): TemplateResult {
         <th class="dtek-corner">${cornerLabel}</th>
         ${hours.map(
           (h) => html`
-            <th class="dtek-vhead-cell">
+            <th class="dtek-vhead-cell ${nowHour !== null && h === nowHour ? "is-now-col" : ""}">
               <span class="dtek-vhead">${pad2(h)}-${pad2(h + 1)}</span>
             </th>
           `,
@@ -76,6 +79,8 @@ export function renderDtekHourCell(options: {
   slots: readonly SlotState[];
   hour: number;
   isNowHour: boolean;
+  isNowCol?: boolean;
+  nowMinuteRatio?: number | null;
   highlightRow?: boolean;
   compactRow?: boolean;
   onSelect?: (hour: number) => void;
@@ -83,6 +88,10 @@ export function renderDtekHourCell(options: {
   const s1: SlotState = options.slots[options.hour * 2] ?? "1";
   const s2: SlotState = options.slots[options.hour * 2 + 1] ?? "1";
   const highlight = Boolean(options.highlightRow);
+  const minutePct =
+    options.isNowHour && options.nowMinuteRatio !== undefined && options.nowMinuteRatio !== null
+      ? Math.min(98, Math.max(2, options.nowMinuteRatio * 100))
+      : null;
 
   let icon: TemplateResult | string = "";
   if (s1 === "0" && s2 === "0") {
@@ -94,7 +103,7 @@ export function renderDtekHourCell(options: {
   }
 
   return html`
-    <td>
+    <td class=${options.isNowCol ? "is-now-col" : ""}>
       <button
         type="button"
         class="dtek-cell ${options.isNowHour ? "is-now" : ""} ${options.compactRow ? "compact-row" : ""}"
@@ -107,6 +116,11 @@ export function renderDtekHourCell(options: {
           <span style="background: ${dtekHalfBackground(s2, highlight)}"></span>
         </span>
         <span class="dtek-cell-icon">${icon}</span>
+        ${
+          minutePct !== null
+            ? html`<span class="dtek-now-pin" style="left: ${minutePct.toFixed(1)}%"></span>`
+            : ""
+        }
       </button>
     </td>
   `;

@@ -406,6 +406,12 @@ export const cardStyles = css`
     padding: 3px 0;
   }
 
+  .dtek-vhead-cell.is-now-col {
+    background: var(--ua-today-row-bg);
+    color: var(--ua-today-row-fg);
+    box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--ua-today-row-fg) 35%, transparent);
+  }
+
   .dtek-vhead {
     writing-mode: vertical-rl;
     transform: rotate(180deg);
@@ -454,20 +460,70 @@ export const cardStyles = css`
     height: 24px;
   }
 
+  :host([data-layout="compact"]) ha-card {
+    padding: 10px;
+  }
+
+  :host([data-layout="compact"]) .dtek-cell.compact-row {
+    height: 20px;
+  }
+
   :host([data-layout="kiosk"]) .dtek-cell {
     height: 34px;
   }
 
   .dtek-cell:hover {
-    outline: 2px solid var(--ua-fg);
-    outline-offset: -2px;
+    box-shadow: inset 0 0 0 2px var(--ua-fg);
     z-index: 4;
   }
 
+  td.is-now-col .dtek-cell-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: color-mix(in srgb, var(--ua-now-line) 12%, transparent);
+    pointer-events: none;
+  }
+
   .dtek-cell.is-now {
-    outline: 2px solid var(--ua-accent);
-    outline-offset: -2px;
+    box-shadow: inset 0 0 0 2px var(--ua-now-line);
     z-index: 5;
+  }
+
+  .dtek-now-pin {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    transform: translateX(-50%);
+    background: var(--ua-now-line);
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.35);
+    pointer-events: none;
+    z-index: 6;
+  }
+
+  .weekly-intervals {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 12px;
+  }
+
+  .weekly-iv-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .weekly-iv-day {
+    font-weight: 600;
+    color: var(--ua-fg);
+  }
+
+  .weekly-iv-hours {
+    color: var(--ua-muted);
+    font-variant-numeric: tabular-nums;
   }
 
   .dtek-cell-bg {

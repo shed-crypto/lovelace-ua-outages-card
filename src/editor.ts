@@ -1,16 +1,22 @@
 import { LitElement, css, html, nothing, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import { getStrings, resolveLanguage } from "./localize";
+import { getStrings, resolveLanguage, TranslationStrings } from "./localize";
 import {
+  ActiveScheduleView,
   CardLanguage,
   CardLayout,
   CardStyle,
   CardTheme,
+  CardViewMode,
+  EmptyDaysMode,
   HomeAssistant,
+  IntervalDisplayMode,
+  MobileWeeklyViewMode,
   ModernGridMode,
   UaOutagesCardConfig,
   UaOutagesWeeklyCardConfig,
   WeeklyRowOrder,
+  WeeklyViewMode,
 } from "./types";
 
 const editorStyles = css`
@@ -51,6 +57,7 @@ const editorStyles = css`
   }
 
   input[type="text"],
+  input[type="number"],
   select {
     width: 100%;
     box-sizing: border-box;
@@ -63,10 +70,15 @@ const editorStyles = css`
   }
 
   .toggles {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding-top: 4px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 12px;
+  }
+
+  @media (max-width: 500px) {
+    .toggles {
+      grid-template-columns: 1fr;
+    }
   }
 
   .toggle-item {
@@ -91,7 +103,8 @@ const editorStyles = css`
     color: var(--secondary-text-color, #6b7280);
   }
 
-  details .form {
+  details .form,
+  details .toggles {
     margin-top: 10px;
   }
 `;
@@ -134,6 +147,7 @@ function listEntities(
 
 function renderEntityInput(options: {
   hass: HomeAssistant | undefined;
+  field: string;
   labelText: string;
   value: string;
   domains: readonly string[];
@@ -146,6 +160,7 @@ function renderEntityInput(options: {
       <label>${options.labelText}</label>
       <input
         type="text"
+        data-field=${options.field}
         list="${options.listId}"
         .value=${options.value}
         @change=${(ev: Event) => {
@@ -160,7 +175,29 @@ function renderEntityInput(options: {
   `;
 }
 
+function renderSelectField<T extends string>(options: {
+  field: string;
+  labelText: string;
+  value: T;
+  choices: ReadonlyArray<{ value: T; label: string }>;
+  onChange: (value: T) => void;
+}): TemplateResult {
+  return html`
+    <div class="field">
+      <label>${options.labelText}</label>
+      <select
+        data-field=${options.field}
+        .value=${options.value}
+        @change=${(ev: Event) => options.onChange((ev.target as HTMLSelectElement).value as T)}
+      >
+        ${options.choices.map((c) => html`<option value=${c.value}>${c.label}</option>`)}
+      </select>
+    </div>
+  `;
+}
+
 function renderCheckboxInput(options: {
+  field: string;
   labelText: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
@@ -169,12 +206,85 @@ function renderCheckboxInput(options: {
     <label class="toggle-item">
       <input
         type="checkbox"
+        data-field=${options.field}
         .checked=${options.checked}
         @change=${(ev: Event) => options.onChange((ev.target as HTMLInputElement).checked)}
       />
       <span>${options.labelText}</span>
     </label>
   `;
+}
+
+function themeChoices(
+  ed: TranslationStrings["editor"],
+): Array<{ value: CardTheme; label: string }> {
+  return [
+    { value: "auto", label: ed.themeAuto },
+    { value: "dtek_light", label: ed.themeDtekLight },
+    { value: "dtek_dark", label: ed.themeDtekDark },
+    { value: "kiosk_dark", label: ed.themeKioskDark },
+    { value: "oled_black", label: ed.themeOledBlack },
+  ];
+}
+
+function layoutChoices(
+  ed: TranslationStrings["editor"],
+): Array<{ value: CardLayout; label: string }> {
+  return [
+    { value: "full", label: ed.layoutFull },
+    { value: "compact", label: ed.layoutCompact },
+    { value: "kiosk", label: ed.layoutKiosk },
+  ];
+}
+
+function languageChoices(
+  ed: TranslationStrings["editor"],
+): Array<{ value: CardLanguage; label: string }> {
+  return [
+    { value: "auto", label: ed.langAuto },
+    { value: "uk", label: "Українська" },
+    { value: "en", label: "English" },
+    { value: "ru", label: "Русский" },
+  ];
+}
+
+function weeklyViewChoices(
+  ed: TranslationStrings["editor"],
+): Array<{ value: WeeklyViewMode; label: string }> {
+  return [
+    { value: "auto", label: ed.weeklyAuto },
+    { value: "timeline_bars", label: ed.weeklyBars },
+    { value: "table", label: ed.weeklyTable },
+    { value: "list", label: ed.weeklyList },
+  ];
+}
+
+function mobileWeeklyChoices(
+  ed: TranslationStrings["editor"],
+): Array<{ value: MobileWeeklyViewMode; label: string }> {
+  return [
+    { value: "list", label: ed.mobileWeeklyList },
+    { value: "compact_bars", label: ed.mobileWeeklyBars },
+  ];
+}
+
+function emptyDaysChoices(
+  ed: TranslationStrings["editor"],
+): Array<{ value: EmptyDaysMode; label: string }> {
+  return [
+    { value: "compact_empty", label: ed.emptyDaysCompact },
+    { value: "hide_unscheduled", label: ed.emptyDaysHide },
+    { value: "show_all", label: ed.emptyDaysShowAll },
+  ];
+}
+
+function rowOrderChoices(
+  ed: TranslationStrings["editor"],
+): Array<{ value: WeeklyRowOrder; label: string }> {
+  return [
+    { value: "mon_sun", label: ed.rowOrderMonSun },
+    { value: "rolling", label: ed.rowOrderRolling },
+  ];
 }
 
 @customElement("ua-outages-card-editor")
@@ -206,6 +316,7 @@ export class UaOutagesCardEditor extends LitElement {
     const val = typeof this._config[key] === "string" ? (this._config[key] as string) : "";
     return renderEntityInput({
       hass: this.hass,
+      field: String(key),
       labelText,
       value: val,
       domains,
@@ -221,6 +332,8 @@ export class UaOutagesCardEditor extends LitElement {
     );
     const ed = getStrings(lang).editor;
     const style = this._config.style ?? "dtek";
+    const viewMode = this._config.view_mode ?? "daily_only";
+    const weeklyView = this._config.weekly_view ?? "auto";
 
     return html`
       <div class="form">
@@ -234,6 +347,7 @@ export class UaOutagesCardEditor extends LitElement {
           <label>${ed.title}</label>
           <input
             type="text"
+            data-field="title"
             .value=${this._config.title ?? ""}
             @change=${(ev: Event) => {
               const target = ev.target as HTMLInputElement;
@@ -243,114 +357,257 @@ export class UaOutagesCardEditor extends LitElement {
         </div>
 
         <div class="row-2">
-          <div class="field">
-            <label>${ed.style}</label>
-            <select
-              .value=${style}
-              @change=${(ev: Event) =>
-                this._update("style", (ev.target as HTMLSelectElement).value as CardStyle)}
-            >
-              <option value="dtek">${ed.styleDtek}</option>
-              <option value="modern">${ed.styleModern}</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label>${ed.theme}</label>
-            <select
-              .value=${this._config.theme ?? "auto"}
-              @change=${(ev: Event) =>
-                this._update("theme", (ev.target as HTMLSelectElement).value as CardTheme)}
-            >
-              <option value="auto">${ed.themeAuto}</option>
-              <option value="dtek_light">${ed.themeDtekLight}</option>
-              <option value="dtek_dark">${ed.themeDtekDark}</option>
-            </select>
-          </div>
+          ${renderSelectField<CardStyle>({
+            field: "style",
+            labelText: ed.style,
+            value: style,
+            choices: [
+              { value: "dtek", label: ed.styleDtek },
+              { value: "modern", label: ed.styleModern },
+              { value: "timeline", label: ed.styleTimeline },
+            ],
+            onChange: (v) => this._update("style", v),
+          })}
+          ${renderSelectField<CardTheme>({
+            field: "theme",
+            labelText: ed.theme,
+            value: this._config.theme ?? "auto",
+            choices: themeChoices(ed),
+            onChange: (v) => this._update("theme", v),
+          })}
         </div>
 
         <div class="row-2">
-          <div class="field">
-            <label>${ed.layout}</label>
-            <select
-              .value=${this._config.layout ?? "full"}
-              @change=${(ev: Event) =>
-                this._update("layout", (ev.target as HTMLSelectElement).value as CardLayout)}
-            >
-              <option value="full">${ed.layoutFull}</option>
-              <option value="compact">${ed.layoutCompact}</option>
-              <option value="kiosk">${ed.layoutKiosk}</option>
-            </select>
-          </div>
+          ${renderSelectField<CardLayout>({
+            field: "layout",
+            labelText: ed.layout,
+            value: this._config.layout ?? "full",
+            choices: layoutChoices(ed),
+            onChange: (v) => this._update("layout", v),
+          })}
+          ${renderSelectField<CardLanguage>({
+            field: "language",
+            labelText: ed.language,
+            value: this._config.language ?? "auto",
+            choices: languageChoices(ed),
+            onChange: (v) => this._update("language", v),
+          })}
+        </div>
 
-          <div class="field">
-            <label>${ed.language}</label>
-            <select
-              .value=${this._config.language ?? "auto"}
-              @change=${(ev: Event) =>
-                this._update("language", (ev.target as HTMLSelectElement).value as CardLanguage)}
-            >
-              <option value="auto">${ed.langAuto}</option>
-              <option value="uk">Українська</option>
-              <option value="en">English</option>
-              <option value="ru">Русский</option>
-            </select>
-          </div>
+        <div class="row-2">
+          ${renderSelectField<CardViewMode>({
+            field: "view_mode",
+            labelText: ed.viewMode,
+            value: viewMode,
+            choices: [
+              { value: "daily_only", label: ed.viewModeDailyOnly },
+              { value: "switchable", label: ed.viewModeSwitchable },
+              { value: "both", label: ed.viewModeBoth },
+            ],
+            onChange: (v) => this._update("view_mode", v),
+          })}
+          ${renderSelectField<IntervalDisplayMode>({
+            field: "interval_display",
+            labelText: ed.intervalDisplay,
+            value: this._config.interval_display ?? "auto",
+            choices: [
+              { value: "auto", label: ed.intervalAuto },
+              { value: "chips", label: ed.intervalChips },
+              { value: "text", label: ed.intervalText },
+              { value: "both", label: ed.intervalBoth },
+              { value: "none", label: ed.intervalNone },
+            ],
+            onChange: (v) => this._update("interval_display", v),
+          })}
         </div>
 
         ${
           style === "modern"
+            ? renderSelectField<ModernGridMode>({
+                field: "modern_grid",
+                labelText: ed.modernGrid,
+                value: this._config.modern_grid ?? "2x12",
+                choices: [
+                  { value: "2x12", label: "2×12" },
+                  { value: "1x24", label: "1×24" },
+                ],
+                onChange: (v) => this._update("modern_grid", v),
+              })
+            : nothing
+        }
+        ${
+          viewMode !== "daily_only"
             ? html`
-                <div class="field">
-                  <label>${ed.modernGrid}</label>
-                  <select
-                    .value=${this._config.modern_grid ?? "2x12"}
-                    @change=${(ev: Event) =>
-                      this._update(
-                        "modern_grid",
-                        (ev.target as HTMLSelectElement).value as ModernGridMode,
-                      )}
-                  >
-                    <option value="2x12">2×12</option>
-                    <option value="1x24">1×24</option>
-                  </select>
+                <div class="row-2">
+                  ${
+                    viewMode === "switchable"
+                      ? renderSelectField<ActiveScheduleView>({
+                          field: "default_view",
+                          labelText: ed.defaultView,
+                          value: this._config.default_view ?? "today",
+                          choices: [
+                            { value: "today", label: getStrings(lang).viewToday },
+                            { value: "week", label: getStrings(lang).viewWeek },
+                          ],
+                          onChange: (v) => this._update("default_view", v),
+                        })
+                      : nothing
+                  }
+                  ${renderSelectField<WeeklyViewMode>({
+                    field: "weekly_view",
+                    labelText: ed.weeklyView,
+                    value: weeklyView,
+                    choices: weeklyViewChoices(ed),
+                    onChange: (v) => this._update("weekly_view", v),
+                  })}
                 </div>
+                <div class="row-2">
+                  ${
+                    weeklyView === "auto"
+                      ? renderSelectField<MobileWeeklyViewMode>({
+                          field: "mobile_weekly_view",
+                          labelText: ed.mobileWeeklyView,
+                          value: this._config.mobile_weekly_view ?? "list",
+                          choices: mobileWeeklyChoices(ed),
+                          onChange: (v) => this._update("mobile_weekly_view", v),
+                        })
+                      : renderSelectField<WeeklyRowOrder>({
+                          field: "row_order",
+                          labelText: ed.rowOrder,
+                          value: this._config.row_order ?? "mon_sun",
+                          choices: rowOrderChoices(ed),
+                          onChange: (v) => this._update("row_order", v),
+                        })
+                  }
+                  ${renderSelectField<EmptyDaysMode>({
+                    field: "empty_days_mode",
+                    labelText: ed.emptyDaysMode,
+                    value: this._config.empty_days_mode ?? "compact_empty",
+                    choices: emptyDaysChoices(ed),
+                    onChange: (v) => this._update("empty_days_mode", v),
+                  })}
+                </div>
+                ${
+                  weeklyView === "auto"
+                    ? renderSelectField<WeeklyRowOrder>({
+                        field: "row_order",
+                        labelText: ed.rowOrder,
+                        value: this._config.row_order ?? "mon_sun",
+                        choices: rowOrderChoices(ed),
+                        onChange: (v) => this._update("row_order", v),
+                      })
+                    : nothing
+                }
               `
             : nothing
         }
-        ${this._entityField(ed.batteryEntity, "battery_soc_entity", ["sensor"], "ua-battery-list")}
 
-        <div class="toggles">
-          ${renderCheckboxInput({
-            labelText: ed.showHeader,
-            checked: this._config.show_header !== false,
-            onChange: (c) => this._update("show_header", c),
-          })}
-          ${renderCheckboxInput({
-            labelText: ed.showCountdown,
-            checked: this._config.show_countdown !== false,
-            onChange: (c) => this._update("show_countdown", c),
-          })}
-          ${renderCheckboxInput({
-            labelText: ed.showTomorrow,
-            checked: this._config.show_tomorrow !== false,
-            onChange: (c) => this._update("show_tomorrow", c),
-          })}
-          ${renderCheckboxInput({
-            labelText: ed.showIntervalsText,
-            checked: this._config.show_intervals_text !== false,
-            onChange: (c) => this._update("show_intervals_text", c),
-          })}
-          ${renderCheckboxInput({
-            labelText: ed.showLegend,
-            checked: this._config.show_legend !== false,
-            onChange: (c) => this._update("show_legend", c),
-          })}
-        </div>
+        <details>
+          <summary>${ed.sectionBattery}</summary>
+          <div class="form">
+            ${this._entityField(
+              ed.batteryEntity,
+              "battery_soc_entity",
+              ["sensor"],
+              "ua-battery-list",
+            )}
+            <div class="row-2">
+              ${this._entityField(
+                ed.batteryRuntimeEntity,
+                "battery_runtime_entity",
+                ["sensor"],
+                "ua-bat-rt-list",
+              )}
+              <div class="field">
+                <label>${ed.batteryLowThreshold}</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="99"
+                  data-field="battery_low_threshold"
+                  .value=${String(this._config.battery_low_threshold ?? 20)}
+                  @change=${(ev: Event) => {
+                    const num = Number((ev.target as HTMLInputElement).value);
+                    this._update(
+                      "battery_low_threshold",
+                      Number.isFinite(num) ? Math.min(99, Math.max(1, num)) : undefined,
+                    );
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <details open>
+          <summary>${ed.sectionVisibility}</summary>
+          <div class="toggles">
+            ${renderCheckboxInput({
+              field: "show_header",
+              labelText: ed.showHeader,
+              checked: this._config.show_header !== false,
+              onChange: (c) => this._update("show_header", c),
+            })}
+            ${renderCheckboxInput({
+              field: "show_group_badge",
+              labelText: ed.showGroupBadge,
+              checked: this._config.show_group_badge !== false,
+              onChange: (c) => this._update("show_group_badge", c),
+            })}
+            ${renderCheckboxInput({
+              field: "show_region",
+              labelText: ed.showRegion,
+              checked: this._config.show_region !== false,
+              onChange: (c) => this._update("show_region", c),
+            })}
+            ${renderCheckboxInput({
+              field: "show_connection",
+              labelText: ed.showConnection,
+              checked: this._config.show_connection !== false,
+              onChange: (c) => this._update("show_connection", c),
+            })}
+            ${renderCheckboxInput({
+              field: "show_countdown",
+              labelText: ed.showCountdown,
+              checked: this._config.show_countdown !== false,
+              onChange: (c) => this._update("show_countdown", c),
+            })}
+            ${renderCheckboxInput({
+              field: "show_now_line",
+              labelText: ed.showNowLine,
+              checked: this._config.show_now_line !== false,
+              onChange: (c) => this._update("show_now_line", c),
+            })}
+            ${renderCheckboxInput({
+              field: "show_tomorrow",
+              labelText: ed.showTomorrow,
+              checked: this._config.show_tomorrow !== false,
+              onChange: (c) => this._update("show_tomorrow", c),
+            })}
+            ${renderCheckboxInput({
+              field: "show_intervals_text",
+              labelText: ed.showIntervalsText,
+              checked: this._config.show_intervals_text !== false,
+              onChange: (c) => this._update("show_intervals_text", c),
+            })}
+            ${renderCheckboxInput({
+              field: "show_legend",
+              labelText: ed.showLegend,
+              checked: this._config.show_legend !== false,
+              onChange: (c) => this._update("show_legend", c),
+            })}
+          </div>
+        </details>
 
         <details>
           <summary>${ed.advancedOverrides}</summary>
           <div class="form">
+            ${this._entityField(
+              ed.calendarEntity,
+              "calendar_entity",
+              ["calendar"],
+              "ua-daily-cal-list",
+            )}
             ${this._entityField(ed.tomorrowEntity, "tomorrow_entity", ["sensor"], "ua-tmr-list")}
             ${this._entityField(ed.groupEntity, "group_entity", ["sensor"], "ua-grp-list")}
             ${this._entityField(
@@ -420,6 +677,7 @@ export class UaOutagesWeeklyCardEditor extends LitElement {
     const val = typeof this._config[key] === "string" ? (this._config[key] as string) : "";
     return renderEntityInput({
       hass: this.hass,
+      field: String(key),
       labelText,
       value: val,
       domains,
@@ -434,6 +692,7 @@ export class UaOutagesWeeklyCardEditor extends LitElement {
       this.hass?.locale?.language ?? this.hass?.language,
     );
     const ed = getStrings(lang).editor;
+    const weeklyView = this._config.weekly_view ?? "auto";
 
     return html`
       <div class="form">
@@ -443,6 +702,7 @@ export class UaOutagesWeeklyCardEditor extends LitElement {
           <label>${ed.title}</label>
           <input
             type="text"
+            data-field="title"
             .value=${this._config.title ?? ""}
             @change=${(ev: Event) =>
               this._update("title", (ev.target as HTMLInputElement).value.trim() || undefined)}
@@ -450,51 +710,113 @@ export class UaOutagesWeeklyCardEditor extends LitElement {
         </div>
 
         <div class="row-2">
-          <div class="field">
-            <label>${ed.theme}</label>
-            <select
-              .value=${this._config.theme ?? "auto"}
-              @change=${(ev: Event) =>
-                this._update("theme", (ev.target as HTMLSelectElement).value as CardTheme)}
-            >
-              <option value="auto">${ed.themeAuto}</option>
-              <option value="dtek_light">${ed.themeDtekLight}</option>
-              <option value="dtek_dark">${ed.themeDtekDark}</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label>${ed.rowOrder}</label>
-            <select
-              .value=${this._config.row_order ?? "mon_sun"}
-              @change=${(ev: Event) =>
-                this._update("row_order", (ev.target as HTMLSelectElement).value as WeeklyRowOrder)}
-            >
-              <option value="mon_sun">${ed.rowOrderMonSun}</option>
-              <option value="rolling">${ed.rowOrderRolling}</option>
-            </select>
-          </div>
+          ${renderSelectField<WeeklyViewMode>({
+            field: "weekly_view",
+            labelText: ed.weeklyView,
+            value: weeklyView,
+            choices: weeklyViewChoices(ed),
+            onChange: (v) => this._update("weekly_view", v),
+          })}
+          ${renderSelectField<CardTheme>({
+            field: "theme",
+            labelText: ed.theme,
+            value: this._config.theme ?? "auto",
+            choices: themeChoices(ed),
+            onChange: (v) => this._update("theme", v),
+          })}
         </div>
 
-        <div class="field">
-          <label>${ed.language}</label>
-          <select
-            .value=${this._config.language ?? "auto"}
-            @change=${(ev: Event) =>
-              this._update("language", (ev.target as HTMLSelectElement).value as CardLanguage)}
-          >
-            <option value="auto">${ed.langAuto}</option>
-            <option value="uk">Українська</option>
-            <option value="en">English</option>
-            <option value="ru">Русский</option>
-          </select>
+        <div class="row-2">
+          ${renderSelectField<CardLayout>({
+            field: "layout",
+            labelText: ed.layout,
+            value: this._config.layout ?? "full",
+            choices: layoutChoices(ed),
+            onChange: (v) => this._update("layout", v),
+          })}
+          ${renderSelectField<CardLanguage>({
+            field: "language",
+            labelText: ed.language,
+            value: this._config.language ?? "auto",
+            choices: languageChoices(ed),
+            onChange: (v) => this._update("language", v),
+          })}
         </div>
 
-        ${renderCheckboxInput({
-          labelText: ed.showLegend,
-          checked: this._config.show_legend !== false,
-          onChange: (c) => this._update("show_legend", c),
-        })}
+        <div class="row-2">
+          ${
+            weeklyView === "auto"
+              ? renderSelectField<MobileWeeklyViewMode>({
+                  field: "mobile_weekly_view",
+                  labelText: ed.mobileWeeklyView,
+                  value: this._config.mobile_weekly_view ?? "list",
+                  choices: mobileWeeklyChoices(ed),
+                  onChange: (v) => this._update("mobile_weekly_view", v),
+                })
+              : renderSelectField<WeeklyRowOrder>({
+                  field: "row_order",
+                  labelText: ed.rowOrder,
+                  value: this._config.row_order ?? "mon_sun",
+                  choices: rowOrderChoices(ed),
+                  onChange: (v) => this._update("row_order", v),
+                })
+          }
+          ${renderSelectField<EmptyDaysMode>({
+            field: "empty_days_mode",
+            labelText: ed.emptyDaysMode,
+            value: this._config.empty_days_mode ?? "compact_empty",
+            choices: emptyDaysChoices(ed),
+            onChange: (v) => this._update("empty_days_mode", v),
+          })}
+        </div>
+
+        ${
+          weeklyView === "auto"
+            ? renderSelectField<WeeklyRowOrder>({
+                field: "row_order",
+                labelText: ed.rowOrder,
+                value: this._config.row_order ?? "mon_sun",
+                choices: rowOrderChoices(ed),
+                onChange: (v) => this._update("row_order", v),
+              })
+            : nothing
+        }
+
+        <details open>
+          <summary>${ed.sectionVisibility}</summary>
+          <div class="toggles">
+            ${renderCheckboxInput({
+              field: "show_header",
+              labelText: ed.showHeader,
+              checked: this._config.show_header !== false,
+              onChange: (c) => this._update("show_header", c),
+            })}
+            ${renderCheckboxInput({
+              field: "show_group_badge",
+              labelText: ed.showGroupBadge,
+              checked: this._config.show_group_badge !== false,
+              onChange: (c) => this._update("show_group_badge", c),
+            })}
+            ${renderCheckboxInput({
+              field: "show_now_line",
+              labelText: ed.showNowLine,
+              checked: this._config.show_now_line !== false,
+              onChange: (c) => this._update("show_now_line", c),
+            })}
+            ${renderCheckboxInput({
+              field: "show_intervals_text",
+              labelText: ed.showIntervalsText,
+              checked: this._config.show_intervals_text !== false,
+              onChange: (c) => this._update("show_intervals_text", c),
+            })}
+            ${renderCheckboxInput({
+              field: "show_legend",
+              labelText: ed.showLegend,
+              checked: this._config.show_legend !== false,
+              onChange: (c) => this._update("show_legend", c),
+            })}
+          </div>
+        </details>
 
         <details>
           <summary>${ed.advancedOverrides}</summary>
@@ -503,6 +825,12 @@ export class UaOutagesWeeklyCardEditor extends LitElement {
             ${this._entityField(ed.todayEntity, "today_entity", ["sensor"], "ua-wtoday-list")}
             ${this._entityField(ed.tomorrowEntity, "tomorrow_entity", ["sensor"], "ua-wtmr-list")}
             ${this._entityField(ed.groupEntity, "group_entity", ["sensor"], "ua-wgrp-list")}
+            ${this._entityField(
+              ed.connectionEntity,
+              "connection_entity",
+              ["sensor"],
+              "ua-wconn-list",
+            )}
           </div>
         </details>
       </div>

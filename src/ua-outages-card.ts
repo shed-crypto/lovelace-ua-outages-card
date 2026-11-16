@@ -9,35 +9,50 @@ import {
   renderDtekHeaderRow,
   renderDtekHourCell,
   renderDtekLegend,
+  renderIntervalChips,
+  renderTimelineDailyBox,
+  renderTimelineLegend,
   resolveActiveTheme,
 } from "./render-helpers";
 import {
   addDaysIso,
+  buildWeeklyMatrix,
   computeActiveTiming,
   DEFAULT_TIMEZONE,
   extractDaySchedule,
   formatDateShort,
   formatTimeHm,
   getLocalDateAndSlot,
+  getMinuteOfDay,
+  parseBatteryStatus,
 } from "./schedule-parser";
 import { cardStyles } from "./styles";
 import {
+  ActiveScheduleView,
   ActiveTimingInfo,
+  CalendarApiEvent,
   CardLayout,
   CardStyle,
   CardTheme,
+  CardViewMode,
   DayScheduleData,
+  EmptyDaysMode,
   HassEntity,
   HomeAssistant,
+  IntervalDisplayMode,
   LovelaceGridOptions,
+  MobileWeeklyViewMode,
   ModernGridMode,
   ResolvedEntities,
   SlotState,
   SupportedLanguage,
   UaOutagesCardConfig,
+  WeeklyViewMode,
 } from "./types";
+import { fetchCalendarWeek, renderWeeklyScheduleContent } from "./weekly-renderer";
 
 const TICK_INTERVAL_MS = 30_000;
+const CALENDAR_CACHE_TTL_MS = 300_000;
 
 @customElement("ua-outages-card")
 export class UaOutagesCard extends LitElement {
@@ -47,7 +62,13 @@ export class UaOutagesCard extends LitElement {
   @state() private _config?: UaOutagesCardConfig;
   @state() private _now: Date = new Date();
   @state() private _hoverHour: number | null = null;
+  @state() private _activeView: ActiveScheduleView = "today";
+  @state() private _weeklyEvents: CalendarApiEvent[] = [];
+  @state() private _weeklyHoverCell: { dayIdx: number; hour: number } | null = null;
 
+  private _weeklyFetchKey = "";
+  private _weeklyLastFetchMs = 0;
+  private _weeklyFetching = false;
   private _timerId: number | null = null;
   private _onVisibility = (): void => {
     if (document.visibilityState === "visible") {
@@ -78,16 +99,76 @@ export class UaOutagesCard extends LitElement {
       style: "dtek",
       theme: "auto",
       layout: "full",
+      view_mode: "daily_only",
+      default_view: "today",
       modern_grid: "2x12",
+      interval_display: "auto",
+      weekly_view: "auto",
+      mobile_weekly_view: "list",
+      empty_days_mode: "compact_empty",
+      row_order: "mon_sun",
       language: "auto",
       show_header: true,
+      show_group_badge: true,
+      show_region: true,
+      show_connection: true,
       show_countdown: true,
+      show_now_line: true,
       show_tomorrow: true,
       show_intervals_text: true,
       show_legend: true,
       ...config,
     };
     this._hoverHour = null;
+    this._weeklyHoverCell = null;
+    this._activeView = this._config.default_view ?? "today";
+    this._weeklyFetchKey = "";
+  }
+
+  protected updated(): void {
+    void this._maybeFetchWeeklyCalendar();
+  }
+
+  private async _maybeFetchWeeklyCalendar(): Promise<void> {
+    if (!this.hass || !this._config || this._weeklyFetching) return;
+    const viewMode = this._config.view_mode ?? "daily_only";
+    const needsWeek =
+      viewMode === "both" || (viewMode === "switchable" && this._activeView === "week");
+    if (!needsWeek) return;
+
+    const entities = resolveDailyEntities(this.hass, this._config);
+    const calId = entities.calendar;
+    if (!calId || !this.hass.states[calId]) return;
+
+    const tz = this.hass.config?.time_zone || DEFAULT_TIMEZONE;
+    const { dateIso: todayIso } = getLocalDateAndSlot(new Date(), tz);
+    const lastUpd = entities.lastUpdate ? (this.hass.states[entities.lastUpdate]?.state ?? "") : "";
+    const cacheKey = `${calId}|${todayIso}|${lastUpd}`;
+    const nowMs = Date.now();
+    if (
+      cacheKey === this._weeklyFetchKey &&
+      nowMs - this._weeklyLastFetchMs < CALENDAR_CACHE_TTL_MS
+    ) {
+      return;
+    }
+
+    this._weeklyFetching = true;
+    const startIso = `${addDaysIso(todayIso, -1)}T00:00:00Z`;
+    const endIso = `${addDaysIso(todayIso, 8)}T23:59:59Z`;
+    try {
+      this._weeklyEvents = await fetchCalendarWeek({
+        hass: this.hass,
+        calendarId: calId,
+        startIso,
+        endIso,
+      });
+      this._weeklyFetchKey = cacheKey;
+      this._weeklyLastFetchMs = Date.now();
+    } catch {
+      // Keep prior cached events when transient HA API errors occur.
+    } finally {
+      this._weeklyFetching = false;
+    }
   }
 
   public getCardSize(): number {
@@ -129,18 +210,33 @@ export class UaOutagesCard extends LitElement {
     this.setAttribute("data-layout", layout);
   }
 
-  private _renderBatteryPill(t: TranslationStrings): TemplateResult | typeof nothing {
-    const socEntityId = this._config?.battery_soc_entity?.trim();
-    if (!socEntityId || !this.hass) return nothing;
-    const entity = this.hass.states[socEntityId];
-    if (!entity) return nothing;
-    const soc = Number.parseFloat(entity.state);
-    if (!Number.isFinite(soc)) return nothing;
-    const rounded = Math.max(0, Math.min(100, Math.round(soc)));
-    const low = rounded <= 20;
-    return html`
-      <span class="battery-pill ${low ? "low" : ""}"> ${t.batteryLabel} ${rounded}% </span>
-    `;
+  private _renderBatteryPill(
+    t: TranslationStrings,
+    lang: SupportedLanguage,
+    timing: ActiveTimingInfo,
+  ): TemplateResult | typeof nothing {
+    const info = parseBatteryStatus({
+      hass: this.hass,
+      socEntityId: this._config?.battery_soc_entity,
+      runtimeEntityId: this._config?.battery_runtime_entity,
+      lowThreshold: this._config?.battery_low_threshold,
+      nextOutageDurationMinutes: timing.nextOutageDurationMinutes,
+    });
+    if (!info) return nothing;
+
+    const parts: string[] = [t.batteryLabel];
+    if (info.soc !== null) {
+      parts.push(`${info.soc}%`);
+    }
+    if (info.runtimeMinutes !== null) {
+      const dur = formatDuration(info.runtimeMinutes, lang);
+      if (info.willLastNextOutage === true) {
+        parts.push(`• ${t.batteryEnough} (${t.batteryReserve} ${dur})`);
+      } else {
+        parts.push(`• ${t.batteryReserve} ${dur}`);
+      }
+    }
+    return html`<span class="battery-pill ${info.isLow ? "low" : ""}">${parts.join(" ")}</span>`;
   }
 
   private _renderHero(options: {
@@ -199,7 +295,7 @@ export class UaOutagesCard extends LitElement {
       mainText = t.noSchedule;
     }
 
-    const showBattery = !isCompact ? this._renderBatteryPill(t) : nothing;
+    const showBattery = !isCompact ? this._renderBatteryPill(t, lang, timing) : nothing;
     const showProgress =
       isOutageNow && timing.progressPercent !== null
         ? html`
@@ -410,6 +506,43 @@ export class UaOutagesCard extends LitElement {
     `;
   }
 
+  private _renderTomorrowBlock(options: {
+    t: TranslationStrings;
+    style: CardStyle;
+    tomorrow: DayScheduleData;
+    gridMode: ModernGridMode;
+    showChips: boolean;
+  }): TemplateResult {
+    const { t, style, tomorrow, gridMode, showChips } = options;
+    return html`
+      <div class="tmr-box">
+        <div class="readout-row">
+          <span class="section-lbl">${t.tomorrow}</span>
+          <span class="section-lbl">
+            ${tomorrow.published ? `${tomorrow.outageHours.toFixed(1)} ${t.hourUnit}` : "—"}
+          </span>
+        </div>
+        ${
+          tomorrow.published && tomorrow.slots
+            ? html`
+                ${
+                  style === "timeline"
+                    ? renderTimelineDailyBox({ slots: tomorrow.slots, mini: true })
+                    : this._renderModernTileGrid({
+                        slots: tomorrow.slots,
+                        gridMode,
+                        nowSlot: -1,
+                        mini: true,
+                      })
+                }
+                ${showChips ? renderIntervalChips(tomorrow.slots, t, true) : nothing}
+              `
+            : html`<div class="tmr-unpublished">${t.noTomorrow}</div>`
+        }
+      </div>
+    `;
+  }
+
   protected render(): TemplateResult {
     const cfg = this._config;
     const hass = this.hass;
@@ -460,11 +593,30 @@ export class UaOutagesCard extends LitElement {
     });
 
     const isCompact = layout === "compact";
+    const viewMode: CardViewMode = cfg.view_mode ?? "daily_only";
+    const showDaily =
+      viewMode === "daily_only" || viewMode === "both" || this._activeView === "today";
+    const showWeekly =
+      viewMode === "both" || (viewMode === "switchable" && this._activeView === "week");
+
     const showHeader = cfg.show_header !== false;
     const showGroupBadge = cfg.show_group_badge !== false;
+    const showRegion = !isCompact && cfg.show_region !== false;
+    const showConnection = cfg.show_connection !== false;
     const showCountdown = cfg.show_countdown !== false;
+    const showNowLine = cfg.show_now_line !== false;
     const showTomorrow = !isCompact && cfg.show_tomorrow !== false;
-    const showIntervalsText = !isCompact && cfg.show_intervals_text !== false;
+    const rawIntervalDisplay: IntervalDisplayMode = cfg.interval_display ?? "auto";
+    const resolvedIntervalMode =
+      cfg.show_intervals_text === false || isCompact || rawIntervalDisplay === "none"
+        ? "none"
+        : rawIntervalDisplay === "auto"
+          ? style === "timeline"
+            ? "chips"
+            : "text"
+          : rawIntervalDisplay;
+    const showChips = resolvedIntervalMode === "chips" || resolvedIntervalMode === "both";
+    const showSummaryText = resolvedIntervalMode === "text" || resolvedIntervalMode === "both";
     const showLegend = !isCompact && cfg.show_legend !== false;
 
     const groupVal =
@@ -482,6 +634,8 @@ export class UaOutagesCard extends LitElement {
     const regionStr =
       typeof groupEntity?.attributes.region === "string" ? groupEntity.attributes.region : "";
 
+    const minuteInfo = getMinuteOfDay(this._now, timeZone);
+    const nowTimeBadge = `${t.nowTag.toUpperCase()} ${pad2(minuteInfo.hour)}:${pad2(minuteInfo.minute)}`;
     const nowHour = Math.floor(nowSlot / 2);
     const activeHour = this._hoverHour ?? nowHour;
     const readout = today.slots
@@ -497,7 +651,25 @@ export class UaOutagesCard extends LitElement {
       ? `${t.today}: ${today.outagesText} (${today.outageHours.toFixed(1)} ${t.hourUnit})`
       : `${t.today}: ${today.outageHours.toFixed(1)} ${t.hourUnit}`;
 
-    const useYellowPill = style === "dtek" || theme === "dtek_light" || theme === "dtek_dark";
+    const useYellowPill =
+      style === "dtek" || theme === "dtek_light" || theme === "dtek_dark" || theme === "kiosk_dark";
+
+    const connEntity = entities.connection ? hass.states[entities.connection] : undefined;
+    const weeklyPlanDisabled = connEntity?.attributes.weekly_schedule_shown === false;
+    const weeklyRows = showWeekly
+      ? buildWeeklyMatrix({
+          events: this._weeklyEvents,
+          todayDate: this._now,
+          todaySchedule: today,
+          tomorrowSchedule: tomorrow,
+          rowOrder: cfg.row_order ?? "mon_sun",
+          timeZone,
+        })
+      : [];
+
+    const weeklyView: WeeklyViewMode = cfg.weekly_view ?? "auto";
+    const mobileWeeklyView: MobileWeeklyViewMode = cfg.mobile_weekly_view ?? "list";
+    const emptyDaysMode: EmptyDaysMode = cfg.empty_days_mode ?? "compact_empty";
 
     return html`
       <ha-card>
@@ -517,14 +689,40 @@ export class UaOutagesCard extends LitElement {
                             : nothing
                         }
                       </div>
-                      ${
-                        regionStr && !isCompact
-                          ? html`<span class="region">${regionStr}</span>`
-                          : nothing
-                      }
+                      ${showRegion && regionStr ? html`<span class="region">${regionStr}</span>` : nothing}
                     </div>
                     <div class="header-right">
-                      ${this._renderConnection(t, entities, today, timeZone)}
+                      ${
+                        viewMode === "switchable"
+                          ? html`
+                              <div class="view-tabs" role="tablist">
+                                <button
+                                  type="button"
+                                  role="tab"
+                                  class="view-tab ${this._activeView === "today" ? "active" : ""}"
+                                  aria-selected=${this._activeView === "today" ? "true" : "false"}
+                                  @click=${() => {
+                                    this._activeView = "today";
+                                  }}
+                                >
+                                  ${t.viewToday}
+                                </button>
+                                <button
+                                  type="button"
+                                  role="tab"
+                                  class="view-tab ${this._activeView === "week" ? "active" : ""}"
+                                  aria-selected=${this._activeView === "week" ? "true" : "false"}
+                                  @click=${() => {
+                                    this._activeView = "week";
+                                  }}
+                                >
+                                  ${t.viewWeek}
+                                </button>
+                              </div>
+                            `
+                          : nothing
+                      }
+                      ${showConnection ? this._renderConnection(t, entities, today, timeZone) : nothing}
                     </div>
                   </div>
                 `
@@ -548,85 +746,118 @@ export class UaOutagesCard extends LitElement {
               ? this._renderAddressAlert(t, addressStatusEntity, restorationEntity, timeZone)
               : nothing
           }
-
-          <div class="readout-row">
-            <span class="section-lbl">
-              ${t.today} (${today.outageHours.toFixed(1)} ${t.hourUnit})
-            </span>
-            ${readout ? html`<span class="hover-readout">${readout}</span>` : nothing}
-          </div>
-
           ${
-            style === "dtek"
-              ? this._renderDtekTable({ t, today, tomorrow, nowHour, showTomorrow })
-              : html`
+            showDaily
+              ? html`
+                  <div class="readout-row">
+                    <span class="section-lbl">
+                      ${t.today} (${today.outageHours.toFixed(1)} ${t.hourUnit})
+                    </span>
+                    ${readout ? html`<span class="hover-readout">${readout}</span>` : nothing}
+                  </div>
+
                   ${
-                    today.slots
-                      ? this._renderModernTileGrid({
-                          slots: today.slots,
-                          gridMode: cfg.modern_grid ?? "2x12",
-                          nowSlot,
-                          interactive: true,
-                        })
-                      : html`<div class="tmr-unpublished">${t.noSchedule}</div>`
+                    style === "dtek"
+                      ? this._renderDtekTable({ t, today, tomorrow, nowHour, showTomorrow })
+                      : html`
+                          ${
+                            today.slots
+                              ? style === "timeline"
+                                ? renderTimelineDailyBox({
+                                    slots: today.slots,
+                                    nowPercent: showNowLine ? minuteInfo.percent : null,
+                                    nowTimeLabel: nowTimeBadge,
+                                    showNowBadge: showNowLine,
+                                    onSelectHour: (h) => {
+                                      this._hoverHour = h;
+                                    },
+                                    onLeave: () => {
+                                      this._hoverHour = null;
+                                    },
+                                  })
+                                : this._renderModernTileGrid({
+                                    slots: today.slots,
+                                    gridMode: cfg.modern_grid ?? "2x12",
+                                    nowSlot,
+                                    interactive: true,
+                                  })
+                              : html`<div class="tmr-unpublished">${t.noSchedule}</div>`
+                          }
+                          ${showChips && today.slots ? renderIntervalChips(today.slots, t, true) : nothing}
+                          ${
+                            showTomorrow
+                              ? this._renderTomorrowBlock({
+                                  t,
+                                  style,
+                                  tomorrow,
+                                  gridMode: cfg.modern_grid ?? "2x12",
+                                  showChips,
+                                })
+                              : nothing
+                          }
+                        `
                   }
                   ${
-                    showTomorrow
+                    showSummaryText || showLegend
                       ? html`
-                          <div class="tmr-box">
-                            <div class="readout-row">
-                              <span class="section-lbl">${t.tomorrow}</span>
-                              <span class="section-lbl">
-                                ${
-                                  tomorrow.published
-                                    ? `${tomorrow.outageHours.toFixed(1)} ${t.hourUnit}`
-                                    : "—"
-                                }
-                              </span>
-                            </div>
+                          <div class="footer">
+                            ${showSummaryText ? html`<span>${summaryText}</span>` : html`<span></span>`}
                             ${
-                              tomorrow.published && tomorrow.slots
-                                ? this._renderModernTileGrid({
-                                    slots: tomorrow.slots,
-                                    gridMode: cfg.modern_grid ?? "2x12",
-                                    nowSlot: -1,
-                                    mini: true,
-                                  })
-                                : html`<div class="tmr-unpublished">${t.noTomorrow}</div>`
+                              showLegend
+                                ? style === "dtek"
+                                  ? renderDtekLegend(t, false)
+                                  : style === "timeline"
+                                    ? renderTimelineLegend(t, Boolean(today.possibleHours > 0))
+                                    : html`
+                                        <div class="legend">
+                                          <span class="legend-item">
+                                            <span class="legend-swatch slot-on"></span>
+                                            <span>${t.legOn}</span>
+                                          </span>
+                                          <span class="legend-item">
+                                            <span class="legend-swatch slot-off"></span>
+                                            <span>${t.legOff}</span>
+                                          </span>
+                                          <span class="legend-item">
+                                            <span class="legend-swatch slot-maybe"></span>
+                                            <span>${t.legMaybe}</span>
+                                          </span>
+                                        </div>
+                                      `
+                                : nothing
                             }
                           </div>
                         `
                       : nothing
                   }
                 `
+              : nothing
           }
           ${
-            showIntervalsText || showLegend
+            showWeekly
               ? html`
-                  <div class="footer">
-                    ${showIntervalsText ? html`<span>${summaryText}</span>` : html`<span></span>`}
-                    ${
-                      showLegend
-                        ? style === "dtek"
-                          ? renderDtekLegend(t, false)
-                          : html`
-                              <div class="legend">
-                                <span class="legend-item">
-                                  <span class="legend-swatch slot-on"></span>
-                                  <span>${t.legOn}</span>
-                                </span>
-                                <span class="legend-item">
-                                  <span class="legend-swatch slot-off"></span>
-                                  <span>${t.legOff}</span>
-                                </span>
-                                <span class="legend-item">
-                                  <span class="legend-swatch slot-maybe"></span>
-                                  <span>${t.legMaybe}</span>
-                                </span>
-                              </div>
-                            `
-                        : nothing
-                    }
+                  <div class=${showDaily ? "week-divider" : ""}>
+                    ${renderWeeklyScheduleContent({
+                      rows: weeklyRows,
+                      t,
+                      lang,
+                      weeklyView,
+                      mobileWeeklyView,
+                      emptyDaysMode,
+                      preferBarsOnDesktop:
+                        style === "timeline" || theme === "kiosk_dark" || theme === "oled_black",
+                      nowHour,
+                      nowPercent: minuteInfo.percent,
+                      nowTimeBadge,
+                      hoverCell: this._weeklyHoverCell,
+                      onHover: (cell) => {
+                        this._weeklyHoverCell = cell;
+                      },
+                      showNowLine,
+                      showIntervals: resolvedIntervalMode !== "none",
+                      showLegend,
+                      weeklyPlanDisabled,
+                    })}
                   </div>
                 `
               : nothing

@@ -59,7 +59,7 @@ interval_display: auto # auto | chips | text | both | none
 modern_grid: 2x12 # 2x12 | 1x24 (when style is modern)
 weekly_view: auto # auto | timeline_bars | table | list
 mobile_weekly_view: list # list | compact_bars (when weekly_view is auto)
-empty_days_mode: compact_empty # compact_empty | hide_unscheduled | show_all
+empty_days_mode: auto # auto | compact_empty | hide_unscheduled | show_all
 row_order: mon_sun # mon_sun | rolling
 language: auto # auto | uk | en | ru
 show_header: true
@@ -93,7 +93,7 @@ theme: auto # auto | dtek_light | dtek_dark | kiosk_dark | oled_black
 layout: full # full | compact | kiosk
 weekly_view: auto # auto | timeline_bars | table | list
 mobile_weekly_view: list # list | compact_bars
-empty_days_mode: compact_empty # compact_empty | hide_unscheduled | show_all
+empty_days_mode: auto # auto | compact_empty | hide_unscheduled | show_all
 row_order: mon_sun # mon_sun | rolling
 language: auto # auto | uk | en | ru
 show_header: true

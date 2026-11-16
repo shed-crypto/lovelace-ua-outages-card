@@ -802,4 +802,69 @@ describe("custom cards registration and DOM rendering", () => {
     // Today and published tomorrow remain visible (confirmed-only), while day +2 possible is stripped.
     expect(weekly.shadowRoot?.querySelectorAll(".wlist-card")).toHaveLength(2);
   });
+
+  it("highlights active hour column + minute pin and renders weekly intervals in table mode", async () => {
+    const hass = makeFullHass();
+    const weekly = document.createElement("ua-outages-weekly-card") as UaOutagesWeeklyCard;
+    weekly.hass = hass;
+    weekly.setConfig({
+      type: "custom:ua-outages-weekly-card",
+      entity: "calendar.home_outages",
+      weekly_view: "table",
+      show_now_line: true,
+      show_intervals_text: true,
+      language: "uk",
+    });
+    document.body.appendChild(weekly);
+    await weekly.updateComplete;
+
+    expect(weekly.shadowRoot?.querySelectorAll("th.dtek-vhead-cell.is-now-col")).toHaveLength(1);
+    expect(weekly.shadowRoot?.querySelectorAll("td.is-now-col")).toHaveLength(7);
+    expect(weekly.shadowRoot?.querySelector(".dtek-cell.is-now .dtek-now-pin")).not.toBeNull();
+    expect(weekly.shadowRoot?.querySelector(".weekly-intervals")?.textContent).toContain(
+      "00:00–02:30",
+    );
+
+    // Unchecking show_now_line and show_intervals_text actually removes both from DTEK table.
+    weekly.setConfig({
+      type: "custom:ua-outages-weekly-card",
+      entity: "calendar.home_outages",
+      weekly_view: "table",
+      empty_days_mode: "compact_empty",
+      show_now_line: false,
+      show_intervals_text: false,
+    });
+    await weekly.updateComplete;
+
+    expect(weekly.shadowRoot?.querySelectorAll("th.dtek-vhead-cell.is-now-col")).toHaveLength(0);
+    expect(weekly.shadowRoot?.querySelector(".dtek-cell.is-now")).toBeNull();
+    expect(weekly.shadowRoot?.querySelector(".weekly-intervals")).toBeNull();
+    // compact_empty actually collapses empty rows in table view + renders .collapsed-days strip.
+    expect(weekly.shadowRoot?.querySelectorAll("tbody tr")).toHaveLength(1);
+    expect(weekly.shadowRoot?.querySelector(".collapsed-days")).not.toBeNull();
+
+    // Switching weekly_view from auto -> table in weekly editor preserves non-blank row_order value.
+    const wEditor = document.createElement(
+      "ua-outages-weekly-card-editor",
+    ) as UaOutagesWeeklyCardEditor;
+    wEditor.hass = hass;
+    wEditor.setConfig({
+      type: "custom:ua-outages-weekly-card",
+      entity: "calendar.home_outages",
+      weekly_view: "auto",
+    });
+    document.body.appendChild(wEditor);
+    await wEditor.updateComplete;
+    const weeklySel = wEditor.shadowRoot?.querySelector(
+      'select[data-field="weekly_view"]',
+    ) as HTMLSelectElement;
+    weeklySel.value = "table";
+    weeklySel.dispatchEvent(new Event("change"));
+    await wEditor.updateComplete;
+    const rowOrderSel = wEditor.shadowRoot?.querySelector(
+      'select[data-field="row_order"]',
+    ) as HTMLSelectElement;
+    expect(rowOrderSel.value).toBe("mon_sun");
+    expect(rowOrderSel.selectedIndex).toBe(0);
+  });
 });

@@ -11,13 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `timeline` visual style featuring continuous `00..23` colored bars, live minute-accurate yellow `"now"` cursor badge/line, and merged interval chips.
 - `kiosk_dark` and `oled_black` built-in themes.
 - Unified card `view_mode` (`daily_only` | `switchable` | `both`) allowing one-tap header switching between Today and Week inside `custom:ua-outages-card`.
-- Container-responsive weekly card layouts (`auto` | `timeline_bars` | `table` | `list`), mobile mode preference (`list` | `compact_bars`), and `empty_days_mode` (`compact_empty` | `hide_unscheduled` | `show_all`) with automatic operator-disabled forecast notice.
+- Container-responsive weekly card layouts (`auto` | `timeline_bars` | `table` | `list`), mobile mode preference (`list` | `compact_bars`), and `empty_days_mode` (`auto` | `compact_empty` | `hide_unscheduled` | `show_all`) with automatic operator-disabled forecast notice.
 - Optional `battery_runtime_entity` and `battery_low_threshold` alongside `battery_soc_entity` to report backup reserve sufficiency before the next outage.
 - Granular per-block visibility controls (`show_header`, `show_group_badge`, `show_region`, `show_connection`, `show_address_alert`, `show_readout`, `show_now_line`, `show_today`, `show_tomorrow`, `show_possible`, `interval_display`) in both visual UI editors, allowing independent card-level filtering of grey-zone (`?`) possible outages without changing HA integration settings.
 
 ### Fixed
 - Multi-line header and readout wrapping in narrow Home Assistant `sections` columns, plus automatic removal of duplicated queue names from auto-discovered card titles.
 - Weekly card today row highlighting so confirmed outages remain visually distinct from possible outages across all themes and weekdays.
+- Active hour column header highlighting, column guide, current-minute vertical pin inside DTEK tables (`show_now_line`), merged outage intervals summary in weekly table/bars (`show_intervals_text`), and reliable `<select>` option synchronization when switching editor modes.
 
 ## [0.1.0] - 2026-11-16
 

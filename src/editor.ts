@@ -187,13 +187,31 @@ function renderSelectField<T extends string>(options: {
       <label>${options.labelText}</label>
       <select
         data-field=${options.field}
-        .value=${options.value}
         @change=${(ev: Event) => options.onChange((ev.target as HTMLSelectElement).value as T)}
       >
-        ${options.choices.map((c) => html`<option value=${c.value}>${c.label}</option>`)}
+        ${options.choices.map(
+          (c) =>
+            html`<option value=${c.value} ?selected=${c.value === options.value}>
+              ${c.label}
+            </option>`,
+        )}
       </select>
     </div>
   `;
+}
+
+function syncEditorSelects(root: ShadowRoot | null, values: Record<string, string>): void {
+  if (!root) return;
+  for (const sel of root.querySelectorAll<HTMLSelectElement>("select[data-field]")) {
+    const field = sel.dataset.field;
+    if (!field || !(field in values)) continue;
+    const expected = values[field];
+    const idx = Array.from(sel.options).findIndex((opt) => opt.value === expected);
+    if (idx >= 0) {
+      if (sel.selectedIndex !== idx) sel.selectedIndex = idx;
+      if (sel.value !== expected) sel.value = expected;
+    }
+  }
 }
 
 function renderCheckboxInput(options: {
@@ -272,6 +290,7 @@ function emptyDaysChoices(
   ed: TranslationStrings["editor"],
 ): Array<{ value: EmptyDaysMode; label: string }> {
   return [
+    { value: "auto", label: ed.emptyDaysAuto },
     { value: "compact_empty", label: ed.emptyDaysCompact },
     { value: "hide_unscheduled", label: ed.emptyDaysHide },
     { value: "show_all", label: ed.emptyDaysShowAll },
@@ -325,6 +344,23 @@ export class UaOutagesCardEditor extends LitElement {
     });
   }
 
+  protected updated(): void {
+    syncEditorSelects(this.shadowRoot, {
+      style: this._config.style ?? "dtek",
+      theme: this._config.theme ?? "auto",
+      layout: this._config.layout ?? "full",
+      language: this._config.language ?? "auto",
+      view_mode: this._config.view_mode ?? "daily_only",
+      default_view: this._config.default_view ?? "today",
+      interval_display: this._config.interval_display ?? "auto",
+      modern_grid: this._config.modern_grid ?? "2x12",
+      weekly_view: this._config.weekly_view ?? "auto",
+      mobile_weekly_view: this._config.mobile_weekly_view ?? "list",
+      empty_days_mode: this._config.empty_days_mode ?? "auto",
+      row_order: this._config.row_order ?? "mon_sun",
+    });
+  }
+
   protected render(): TemplateResult {
     const lang = resolveLanguage(
       this._config.language,
@@ -332,8 +368,11 @@ export class UaOutagesCardEditor extends LitElement {
     );
     const ed = getStrings(lang).editor;
     const style = this._config.style ?? "dtek";
+    const isCompact = (this._config.layout ?? "full") === "compact";
     const viewMode = this._config.view_mode ?? "daily_only";
     const weeklyView = this._config.weekly_view ?? "auto";
+    const visChecked = (val: boolean | undefined): boolean =>
+      val !== undefined ? val : !isCompact;
 
     return html`
       <div class="form">
@@ -462,39 +501,29 @@ export class UaOutagesCardEditor extends LitElement {
                   })}
                 </div>
                 <div class="row-2">
-                  ${
-                    weeklyView === "auto"
-                      ? renderSelectField<MobileWeeklyViewMode>({
-                          field: "mobile_weekly_view",
-                          labelText: ed.mobileWeeklyView,
-                          value: this._config.mobile_weekly_view ?? "list",
-                          choices: mobileWeeklyChoices(ed),
-                          onChange: (v) => this._update("mobile_weekly_view", v),
-                        })
-                      : renderSelectField<WeeklyRowOrder>({
-                          field: "row_order",
-                          labelText: ed.rowOrder,
-                          value: this._config.row_order ?? "mon_sun",
-                          choices: rowOrderChoices(ed),
-                          onChange: (v) => this._update("row_order", v),
-                        })
-                  }
+                  ${renderSelectField<WeeklyRowOrder>({
+                    field: "row_order",
+                    labelText: ed.rowOrder,
+                    value: this._config.row_order ?? "mon_sun",
+                    choices: rowOrderChoices(ed),
+                    onChange: (v) => this._update("row_order", v),
+                  })}
                   ${renderSelectField<EmptyDaysMode>({
                     field: "empty_days_mode",
                     labelText: ed.emptyDaysMode,
-                    value: this._config.empty_days_mode ?? "compact_empty",
+                    value: this._config.empty_days_mode ?? "auto",
                     choices: emptyDaysChoices(ed),
                     onChange: (v) => this._update("empty_days_mode", v),
                   })}
                 </div>
                 ${
                   weeklyView === "auto"
-                    ? renderSelectField<WeeklyRowOrder>({
-                        field: "row_order",
-                        labelText: ed.rowOrder,
-                        value: this._config.row_order ?? "mon_sun",
-                        choices: rowOrderChoices(ed),
-                        onChange: (v) => this._update("row_order", v),
+                    ? renderSelectField<MobileWeeklyViewMode>({
+                        field: "mobile_weekly_view",
+                        labelText: ed.mobileWeeklyView,
+                        value: this._config.mobile_weekly_view ?? "list",
+                        choices: mobileWeeklyChoices(ed),
+                        onChange: (v) => this._update("mobile_weekly_view", v),
                       })
                     : nothing
                 }
@@ -557,7 +586,7 @@ export class UaOutagesCardEditor extends LitElement {
             ${renderCheckboxInput({
               field: "show_region",
               labelText: ed.showRegion,
-              checked: this._config.show_region !== false,
+              checked: visChecked(this._config.show_region),
               onChange: (c) => this._update("show_region", c),
             })}
             ${renderCheckboxInput({
@@ -575,7 +604,7 @@ export class UaOutagesCardEditor extends LitElement {
             ${renderCheckboxInput({
               field: "show_address_alert",
               labelText: ed.showAddressAlert,
-              checked: this._config.show_address_alert !== false,
+              checked: visChecked(this._config.show_address_alert),
               onChange: (c) => this._update("show_address_alert", c),
             })}
             ${renderCheckboxInput({
@@ -599,7 +628,7 @@ export class UaOutagesCardEditor extends LitElement {
             ${renderCheckboxInput({
               field: "show_tomorrow",
               labelText: ed.showTomorrow,
-              checked: this._config.show_tomorrow !== false,
+              checked: visChecked(this._config.show_tomorrow),
               onChange: (c) => this._update("show_tomorrow", c),
             })}
             ${renderCheckboxInput({
@@ -611,13 +640,13 @@ export class UaOutagesCardEditor extends LitElement {
             ${renderCheckboxInput({
               field: "show_intervals_text",
               labelText: ed.showIntervalsText,
-              checked: this._config.show_intervals_text !== false,
+              checked: visChecked(this._config.show_intervals_text),
               onChange: (c) => this._update("show_intervals_text", c),
             })}
             ${renderCheckboxInput({
               field: "show_legend",
               labelText: ed.showLegend,
-              checked: this._config.show_legend !== false,
+              checked: visChecked(this._config.show_legend),
               onChange: (c) => this._update("show_legend", c),
             })}
           </div>
@@ -710,6 +739,18 @@ export class UaOutagesWeeklyCardEditor extends LitElement {
     });
   }
 
+  protected updated(): void {
+    syncEditorSelects(this.shadowRoot, {
+      weekly_view: this._config.weekly_view ?? "auto",
+      theme: this._config.theme ?? "auto",
+      layout: this._config.layout ?? "full",
+      language: this._config.language ?? "auto",
+      mobile_weekly_view: this._config.mobile_weekly_view ?? "list",
+      empty_days_mode: this._config.empty_days_mode ?? "auto",
+      row_order: this._config.row_order ?? "mon_sun",
+    });
+  }
+
   protected render(): TemplateResult {
     const lang = resolveLanguage(
       this._config.language,
@@ -768,27 +809,17 @@ export class UaOutagesWeeklyCardEditor extends LitElement {
         </div>
 
         <div class="row-2">
-          ${
-            weeklyView === "auto"
-              ? renderSelectField<MobileWeeklyViewMode>({
-                  field: "mobile_weekly_view",
-                  labelText: ed.mobileWeeklyView,
-                  value: this._config.mobile_weekly_view ?? "list",
-                  choices: mobileWeeklyChoices(ed),
-                  onChange: (v) => this._update("mobile_weekly_view", v),
-                })
-              : renderSelectField<WeeklyRowOrder>({
-                  field: "row_order",
-                  labelText: ed.rowOrder,
-                  value: this._config.row_order ?? "mon_sun",
-                  choices: rowOrderChoices(ed),
-                  onChange: (v) => this._update("row_order", v),
-                })
-          }
+          ${renderSelectField<WeeklyRowOrder>({
+            field: "row_order",
+            labelText: ed.rowOrder,
+            value: this._config.row_order ?? "mon_sun",
+            choices: rowOrderChoices(ed),
+            onChange: (v) => this._update("row_order", v),
+          })}
           ${renderSelectField<EmptyDaysMode>({
             field: "empty_days_mode",
             labelText: ed.emptyDaysMode,
-            value: this._config.empty_days_mode ?? "compact_empty",
+            value: this._config.empty_days_mode ?? "auto",
             choices: emptyDaysChoices(ed),
             onChange: (v) => this._update("empty_days_mode", v),
           })}
@@ -796,12 +827,12 @@ export class UaOutagesWeeklyCardEditor extends LitElement {
 
         ${
           weeklyView === "auto"
-            ? renderSelectField<WeeklyRowOrder>({
-                field: "row_order",
-                labelText: ed.rowOrder,
-                value: this._config.row_order ?? "mon_sun",
-                choices: rowOrderChoices(ed),
-                onChange: (v) => this._update("row_order", v),
+            ? renderSelectField<MobileWeeklyViewMode>({
+                field: "mobile_weekly_view",
+                labelText: ed.mobileWeeklyView,
+                value: this._config.mobile_weekly_view ?? "list",
+                choices: mobileWeeklyChoices(ed),
+                onChange: (v) => this._update("mobile_weekly_view", v),
               })
             : nothing
         }

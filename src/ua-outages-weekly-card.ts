@@ -63,7 +63,7 @@ export class UaOutagesWeeklyCard extends LitElement {
       layout: "full",
       weekly_view: "auto",
       mobile_weekly_view: "list",
-      empty_days_mode: "compact_empty",
+      empty_days_mode: "auto",
       row_order: "mon_sun",
       language: "auto",
       show_header: true,
@@ -192,7 +192,7 @@ export class UaOutagesWeeklyCard extends LitElement {
     const showGroupBadge = cfg.show_group_badge !== false;
     const weeklyView: WeeklyViewMode = cfg.weekly_view ?? "auto";
     const mobileWeeklyView: MobileWeeklyViewMode = cfg.mobile_weekly_view ?? "list";
-    const emptyDaysMode: EmptyDaysMode = cfg.empty_days_mode ?? "compact_empty";
+    const emptyDaysMode: EmptyDaysMode = cfg.empty_days_mode ?? "auto";
     const preferBars = theme === "kiosk_dark" || theme === "oled_black";
 
     return html`
@@ -227,6 +227,7 @@ export class UaOutagesWeeklyCard extends LitElement {
             emptyDaysMode,
             preferBarsOnDesktop: preferBars,
             nowHour,
+            nowMinuteRatio: minuteInfo.minute / 60,
             nowPercent: minuteInfo.percent,
             nowTimeBadge,
             hoverCell: this._hoverCell,

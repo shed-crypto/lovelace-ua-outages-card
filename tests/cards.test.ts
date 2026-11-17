@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import "../src/index";
 import { UaOutagesCardEditor, UaOutagesWeeklyCardEditor } from "../src/editor";
 import { UaOutagesCard } from "../src/ua-outages-card";
@@ -164,7 +164,13 @@ function makeFullHass(overrides: Partial<HomeAssistant> = {}): HomeAssistant {
 
 describe("custom cards registration and DOM rendering", () => {
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-16T07:00:00Z"));
     document.body.innerHTML = "";
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("registers both custom elements, config elements, and window.customCards", () => {

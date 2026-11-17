@@ -1,5 +1,13 @@
 # UA Outages Card (`lovelace-ua-outages-card`)
 
+[![CI](https://github.com/shed-crypto/lovelace-ua-outages-card/actions/workflows/ci.yml/badge.svg)](https://github.com/shed-crypto/lovelace-ua-outages-card/actions/workflows/ci.yml)
+[![HACS Validate](https://github.com/shed-crypto/lovelace-ua-outages-card/actions/workflows/validate.yml/badge.svg)](https://github.com/shed-crypto/lovelace-ua-outages-card/actions/workflows/validate.yml)
+[![Release](https://img.shields.io/github/v/release/shed-crypto/lovelace-ua-outages-card)](https://github.com/shed-crypto/lovelace-ua-outages-card/releases)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Lit](https://img.shields.io/badge/Lit-3-324FFF?logo=lit&logoColor=white)](https://lit.dev/)
+[![HACS](https://img.shields.io/badge/HACS-Plugin-41BDF5?logo=home-assistant&logoColor=white)](https://hacs.xyz/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Custom Home Assistant Lovelace cards for visualizing Ukrainian electricity outage schedules from [`ha-ua-outages`](https://github.com/shed-crypto/ha-ua-outages) (`ua_outages` integration) as well as third-party sensors exposing 48-slot schedules or outage interval attributes.
 
 Includes two cards in a single lightweight bundle (`dist/ua-outages-card.js`):

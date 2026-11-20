@@ -2,7 +2,7 @@ import { LitElement, html, nothing, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { findDefaultPrimaryEntity, resolveWeeklyEntities } from "./discovery";
 import { getStrings, resolveLanguage } from "./localize";
-import { resolveActiveTheme } from "./render-helpers";
+import { resolveActiveTheme, resolveVisibleTitle } from "./render-helpers";
 import {
   addDaysIso,
   buildWeeklyMatrix,
@@ -35,6 +35,7 @@ export class UaOutagesWeeklyCard extends LitElement {
   @state() private _config?: UaOutagesWeeklyCardConfig;
   @state() private _events: CalendarApiEvent[] = [];
   @state() private _hoverCell: { dayIdx: number; hour: number } | null = null;
+  @state() private _pinnedCell: { dayIdx: number; hour: number } | null = null;
 
   private _lastFetchKey = "";
   private _lastFetchMs = 0;
@@ -67,6 +68,7 @@ export class UaOutagesWeeklyCard extends LitElement {
       row_order: "mon_sun",
       language: "auto",
       show_header: true,
+      show_title: true,
       show_group_badge: true,
       show_readout: true,
       show_now_line: true,
@@ -76,6 +78,7 @@ export class UaOutagesWeeklyCard extends LitElement {
       ...config,
     };
     this._hoverCell = null;
+    this._pinnedCell = null;
     this._lastFetchKey = "";
   }
 
@@ -131,6 +134,16 @@ export class UaOutagesWeeklyCard extends LitElement {
     } finally {
       this._fetching = false;
     }
+  }
+
+  private _toggleCell(cell: { dayIdx: number; hour: number }): void {
+    if (this._pinnedCell?.dayIdx === cell.dayIdx && this._pinnedCell.hour === cell.hour) {
+      this._pinnedCell = null;
+      this._hoverCell = null;
+      return;
+    }
+    this._pinnedCell = cell;
+    this._hoverCell = cell;
   }
 
   protected render(): TemplateResult {
@@ -190,6 +203,8 @@ export class UaOutagesWeeklyCard extends LitElement {
 
     const showHeader = cfg.show_header !== false;
     const showGroupBadge = cfg.show_group_badge !== false;
+    const title = resolveVisibleTitle(cfg.title, cfg.show_title, () => t.weeklyDefaultTitle);
+    const hasTitleRow = Boolean(title) || (showGroupBadge && Boolean(groupVal));
     const weeklyView: WeeklyViewMode = cfg.weekly_view ?? "auto";
     const mobileWeeklyView: MobileWeeklyViewMode = cfg.mobile_weekly_view ?? "list";
     const emptyDaysMode: EmptyDaysMode = cfg.empty_days_mode ?? "auto";
@@ -199,12 +214,12 @@ export class UaOutagesWeeklyCard extends LitElement {
       <ha-card>
         <div class="wrap">
           ${
-            showHeader
+            showHeader && hasTitleRow
               ? html`
                   <div class="header">
                     <div class="header-left">
                       <div class="header-title-row">
-                        <span class="title">${cfg.title || t.weeklyDefaultTitle}</span>
+                        ${title ? html`<span class="title">${title}</span>` : nothing}
                         ${
                           showGroupBadge && groupVal
                             ? html`<span class="badge-group dtek-pill"
@@ -230,10 +245,12 @@ export class UaOutagesWeeklyCard extends LitElement {
             nowMinuteRatio: minuteInfo.minute / 60,
             nowPercent: minuteInfo.percent,
             nowTimeBadge,
-            hoverCell: this._hoverCell,
+            hoverCell: this._hoverCell ?? this._pinnedCell,
+            selectedCell: this._pinnedCell,
             onHover: (cell) => {
               this._hoverCell = cell;
             },
+            onSelectCell: (cell) => this._toggleCell(cell),
             showReadout: cfg.show_readout !== false,
             showNowLine: cfg.show_now_line !== false,
             showPossible,

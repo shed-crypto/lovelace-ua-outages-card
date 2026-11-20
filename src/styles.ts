@@ -439,6 +439,10 @@ export const cardStyles = css`
     color: var(--ua-today-row-fg);
   }
 
+  .day-lbl-short {
+    display: none;
+  }
+
   .dtek-table tr.is-today-row td {
     box-shadow:
       inset 0 1px 0 color-mix(in srgb, var(--ua-today-row-bg) 75%, transparent),
@@ -488,6 +492,11 @@ export const cardStyles = css`
   .dtek-cell.is-now {
     box-shadow: inset 0 0 0 2px var(--ua-now-line);
     z-index: 5;
+  }
+
+  .dtek-cell.is-selected {
+    box-shadow: inset 0 0 0 2px var(--ua-fg);
+    z-index: 6;
   }
 
   .dtek-now-pin {
@@ -591,6 +600,12 @@ export const cardStyles = css`
   .hour-tile.is-now {
     border: 2px solid var(--ua-accent);
     z-index: 5;
+  }
+
+  .hour-tile.is-selected {
+    border-color: var(--ua-fg);
+    box-shadow: inset 0 0 0 1px var(--ua-fg);
+    z-index: 4;
   }
 
   .half-slot {
@@ -844,6 +859,13 @@ export const cardStyles = css`
     filter: brightness(1.18);
   }
 
+  .tl-slot.is-selected {
+    position: relative;
+    outline: 1.5px solid var(--ua-fg);
+    outline-offset: -1.5px;
+    z-index: 4;
+  }
+
   .tl-now-line {
     position: absolute;
     top: -3px;
@@ -1030,6 +1052,78 @@ export const cardStyles = css`
   }
 
   @container ua-card (max-width: 459px) {
+    ha-card {
+      padding: 10px;
+    }
+
+    .header {
+      gap: 4px 8px;
+    }
+
+    .region {
+      font-size: 11px;
+    }
+
+    .dtek-table {
+      min-width: 0;
+    }
+
+    .dtek-corner {
+      width: 48px;
+      padding: 0 3px;
+      font-size: 9.5px;
+    }
+
+    .dtek-table-weekly .dtek-corner {
+      width: 34px;
+    }
+
+    .dtek-vhead-cell {
+      padding: 2px 0;
+    }
+
+    .dtek-vhead {
+      font-size: 8.5px;
+      letter-spacing: -0.02em;
+    }
+
+    .dtek-day-cell {
+      padding: 2px 3px;
+      font-size: 10px;
+      line-height: 1.1;
+      white-space: normal;
+      text-align: center;
+    }
+
+    .day-lbl-full {
+      display: none;
+    }
+
+    .day-lbl-short {
+      display: inline;
+    }
+
+    .dtek-cell-icon svg {
+      width: 9px;
+      height: 9px;
+    }
+
+    .grid-1x24 {
+      gap: 1px;
+    }
+
+    .grid-1x24 .hour-badge {
+      font-size: 8px;
+    }
+
+    .grid-2x12 {
+      gap: 3px;
+    }
+
+    .grid-2x12 .hour-badge {
+      font-size: 11px;
+    }
+
     .weekly-responsive .weekly-desktop-view {
       display: none;
     }
@@ -1041,11 +1135,23 @@ export const cardStyles = css`
     }
   }
 
-  @container ua-card (max-width: 380px) {
+  @container ua-card (max-width: 420px) {
+    .tl-hours {
+      font-size: 9px;
+    }
+
+    .tl-hour-lbl {
+      overflow: visible;
+      padding-left: 0;
+      white-space: nowrap;
+    }
+
     .tl-hour-lbl:nth-child(even) {
       visibility: hidden;
     }
+  }
 
+  @container ua-card (max-width: 380px) {
     .wbar-axis-row,
     .wbar-row,
     .wbar-rows-area {

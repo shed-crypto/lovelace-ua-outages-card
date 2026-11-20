@@ -3,6 +3,8 @@ import { css } from "lit";
 export const cardStyles = css`
   :host {
     display: block;
+    container-type: inline-size;
+    container-name: ua-card;
     --ua-bg: var(--ha-card-background, var(--card-background-color, #ffffff));
     --ua-sub: var(--secondary-background-color, rgba(127, 127, 127, 0.08));
     --ua-fg: var(--primary-text-color, #1f2937);
@@ -129,6 +131,7 @@ export const cardStyles = css`
   }
 
   ha-card {
+    display: block;
     background: var(--ua-bg);
     color: var(--ua-fg);
     border-color: var(--ua-border);
@@ -147,8 +150,6 @@ export const cardStyles = css`
     display: flex;
     flex-direction: column;
     gap: 10px;
-    container-type: inline-size;
-    container-name: ua-card;
   }
 
   .header {
@@ -1069,7 +1070,7 @@ export const cardStyles = css`
     }
 
     .dtek-corner {
-      width: 48px;
+      width: 52px;
       padding: 0 3px;
       font-size: 9.5px;
     }

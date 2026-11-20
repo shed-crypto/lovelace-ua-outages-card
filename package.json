@@ -1,6 +1,6 @@
 {
   "name": "lovelace-ua-outages-card",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Custom Home Assistant Lovelace cards for Ukrainian power outage schedules",
   "license": "MIT",
   "author": "Rachenko Oleksii <alexey.rachenko@gmail.com>",

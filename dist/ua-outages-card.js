@@ -136,6 +136,8 @@ function e(e,t,o,a){var s,i=arguments.length,n=i<3?t:null===a?a=Object.getOwnPro
   `}const ct=n`
   :host {
     display: block;
+    container-type: inline-size;
+    container-name: ua-card;
     --ua-bg: var(--ha-card-background, var(--card-background-color, #ffffff));
     --ua-sub: var(--secondary-background-color, rgba(127, 127, 127, 0.08));
     --ua-fg: var(--primary-text-color, #1f2937);
@@ -262,6 +264,7 @@ function e(e,t,o,a){var s,i=arguments.length,n=i<3?t:null===a?a=Object.getOwnPro
   }
 
   ha-card {
+    display: block;
     background: var(--ua-bg);
     color: var(--ua-fg);
     border-color: var(--ua-border);
@@ -280,8 +283,6 @@ function e(e,t,o,a){var s,i=arguments.length,n=i<3?t:null===a?a=Object.getOwnPro
     display: flex;
     flex-direction: column;
     gap: 10px;
-    container-type: inline-size;
-    container-name: ua-card;
   }
 
   .header {
@@ -1202,7 +1203,7 @@ function e(e,t,o,a){var s,i=arguments.length,n=i<3?t:null===a?a=Object.getOwnPro
     }
 
     .dtek-corner {
-      width: 48px;
+      width: 52px;
       padding: 0 3px;
       font-size: 9.5px;
     }
@@ -1905,4 +1906,4 @@ function e(e,t,o,a){var s,i=arguments.length,n=i<3?t:null===a?a=Object.getOwnPro
           </div>
         </details>
       </div>
-    `}};e([ge({attribute:!1})],It.prototype,"hass",void 0),e([ye()],It.prototype,"_config",void 0),It=e([ce("ua-outages-weekly-card-editor")],It);const Pt=[{type:"ua-outages-card",name:"UA Outages Card",description:"Today and tomorrow Ukrainian power outage schedule card with DTEK table and modern tile styles.",preview:!0,documentationURL:"https://github.com/shed-crypto/lovelace-ua-outages-card"},{type:"ua-outages-weekly-card",name:"UA Outages Weekly Card",description:"7x24 weekly power outage schedule matrix in DTEK table style.",preview:!0,documentationURL:"https://github.com/shed-crypto/lovelace-ua-outages-card"}];window.customCards=window.customCards||[];for(const e of Pt)window.customCards.some(t=>t.type===e.type)||window.customCards.push(e);console.info("UA-OUTAGES-CARD 0.1.0 loaded");
+    `}};e([ge({attribute:!1})],It.prototype,"hass",void 0),e([ye()],It.prototype,"_config",void 0),It=e([ce("ua-outages-weekly-card-editor")],It);const Pt=[{type:"ua-outages-card",name:"UA Outages Card",description:"Today and tomorrow Ukrainian power outage schedule card with DTEK table and modern tile styles.",preview:!0,documentationURL:"https://github.com/shed-crypto/lovelace-ua-outages-card"},{type:"ua-outages-weekly-card",name:"UA Outages Weekly Card",description:"7x24 weekly power outage schedule matrix in DTEK table style.",preview:!0,documentationURL:"https://github.com/shed-crypto/lovelace-ua-outages-card"}];window.customCards=window.customCards||[];for(const e of Pt)window.customCards.some(t=>t.type===e.type)||window.customCards.push(e);console.info("UA-OUTAGES-CARD 0.1.1 loaded");

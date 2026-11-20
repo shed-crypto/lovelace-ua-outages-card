@@ -34,4 +34,4 @@ for (const entry of CARD_DEFS) {
   }
 }
 
-console.info("UA-OUTAGES-CARD 0.1.0 loaded");
+console.info("UA-OUTAGES-CARD 0.1.1 loaded");

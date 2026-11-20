@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `show_title` visibility toggle in both cards and visual UI editors, plus hiding the title when `title: ""` is explicitly configured.
+- Mobile touch tap-to-pin / tap-again-to-unpin selection (`.is-selected`) across DTEK tables, `modern` tiles, and `timeline` tracks, including interactive cells on tomorrow's row in daily DTEK tables.
+
+### Fixed
+- Responsive DTEK table sizing below 460px (`min-width: 0`, compact corner column, short day labels `Пн`–`Нд` / `Сьог` / `Зав`, `8.5px` hour headers, `9px` icons) so all 24 hours fit on narrow phone screens without horizontal cutoff.
+- Narrow-screen legibility for `modern` `1x24` tile numbers (`font-size: 8px`, `1px` gap) and `timeline` hour axis labels (`overflow: visible`).
+
 ## [0.1.0] - 2026-11-16
 
 ### Added

@@ -117,6 +117,7 @@ export interface UaOutagesCardConfig {
   row_order?: WeeklyRowOrder;
   language?: CardLanguage;
   show_header?: boolean;
+  show_title?: boolean;
   show_group_badge?: boolean;
   show_region?: boolean;
   show_connection?: boolean;
@@ -158,6 +159,7 @@ export interface UaOutagesWeeklyCardConfig {
   row_order?: WeeklyRowOrder;
   language?: CardLanguage;
   show_header?: boolean;
+  show_title?: boolean;
   show_group_badge?: boolean;
   show_readout?: boolean;
   show_now_line?: boolean;

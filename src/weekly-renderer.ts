@@ -92,15 +92,26 @@ function renderWeeklyTable(options: {
   t: TranslationStrings;
   nowHour: number | null;
   nowMinuteRatio: number | null;
+  selectedCell?: { dayIdx: number; hour: number } | null;
   showIntervals: boolean;
   onHover: (cell: { dayIdx: number; hour: number } | null) => void;
+  onSelect?: (cell: { dayIdx: number; hour: number }) => void;
 }): TemplateResult {
-  const { allRows, rows, collapsed, emptyDaysMode, t, nowHour, nowMinuteRatio, showIntervals } =
-    options;
+  const {
+    allRows,
+    rows,
+    collapsed,
+    emptyDaysMode,
+    t,
+    nowHour,
+    nowMinuteRatio,
+    selectedCell,
+    showIntervals,
+  } = options;
   const hours = Array.from({ length: 24 }, (_, h) => h);
   return html`
     <div class="table-scroll" @mouseleave=${() => options.onHover(null)}>
-      <table class="dtek-table">
+      <table class="dtek-table dtek-table-weekly">
         ${renderDtekHeaderRow(t.daysHeader, nowHour)}
         <tbody>
           ${rows.map((row) => {
@@ -108,7 +119,8 @@ function renderWeeklyTable(options: {
             return html`
               <tr class=${row.isToday ? "is-today-row" : ""}>
                 <td class="dtek-day-cell ${row.isToday ? "today-highlight" : ""}">
-                  ${t.weekdays[row.weekdayIndex]}
+                  <span class="day-lbl-full">${t.weekdays[row.weekdayIndex]}</span>
+                  <span class="day-lbl-short">${t.weekdaysShort[row.weekdayIndex]}</span>
                 </td>
                 ${hours.map((h) =>
                   renderDtekHourCell({
@@ -116,11 +128,14 @@ function renderWeeklyTable(options: {
                     hour: h,
                     isNowCol: nowHour !== null && h === nowHour,
                     isNowHour: nowHour !== null && row.isToday && h === nowHour,
+                    isSelected: selectedCell?.dayIdx === fullIdx && selectedCell.hour === h,
                     nowMinuteRatio:
                       nowHour !== null && row.isToday && h === nowHour ? nowMinuteRatio : null,
                     highlightRow: row.isToday,
                     compactRow: true,
-                    onSelect: (hour) => options.onHover({ dayIdx: fullIdx, hour }),
+                    onHover: (hour) => options.onHover({ dayIdx: fullIdx, hour }),
+                    onSelect: (hour) =>
+                      (options.onSelect ?? options.onHover)({ dayIdx: fullIdx, hour }),
                   }),
                 )}
               </tr>
@@ -151,11 +166,22 @@ function renderWeeklyBars(options: {
   t: TranslationStrings;
   nowPercent: number | null;
   nowTimeBadge: string;
+  selectedCell?: { dayIdx: number; hour: number } | null;
   showIntervals: boolean;
   onHover: (cell: { dayIdx: number; hour: number } | null) => void;
+  onSelect?: (cell: { dayIdx: number; hour: number }) => void;
 }): TemplateResult {
-  const { allRows, rows, collapsed, emptyDaysMode, t, nowPercent, nowTimeBadge, showIntervals } =
-    options;
+  const {
+    allRows,
+    rows,
+    collapsed,
+    emptyDaysMode,
+    t,
+    nowPercent,
+    nowTimeBadge,
+    selectedCell,
+    showIntervals,
+  } = options;
   return html`
     <div class="wbar-wrap" @mouseleave=${() => options.onHover(null)}>
       <div class="wbar-axis-row">
@@ -201,7 +227,10 @@ function renderWeeklyBars(options: {
                 slots: row.slots,
                 mini: true,
                 nowPercent: null,
-                onSelectHour: (hour) => options.onHover({ dayIdx: fullIdx, hour }),
+                selectedHour: selectedCell?.dayIdx === fullIdx ? selectedCell.hour : null,
+                onHoverHour: (hour) => options.onHover({ dayIdx: fullIdx, hour }),
+                onSelectHour: (hour) =>
+                  (options.onSelect ?? options.onHover)({ dayIdx: fullIdx, hour }),
               })}
             </div>
           `;
@@ -241,10 +270,13 @@ function renderWeeklyList(options: {
   emptyDaysMode: EmptyDaysMode;
   t: TranslationStrings;
   nowPercent: number | null;
+  selectedCell?: { dayIdx: number; hour: number } | null;
   showIntervals: boolean;
   onHover: (cell: { dayIdx: number; hour: number } | null) => void;
+  onSelect?: (cell: { dayIdx: number; hour: number }) => void;
 }): TemplateResult {
-  const { allRows, rows, collapsed, emptyDaysMode, t, nowPercent, showIntervals } = options;
+  const { allRows, rows, collapsed, emptyDaysMode, t, nowPercent, selectedCell, showIntervals } =
+    options;
   return html`
     <div class="wlist" @mouseleave=${() => options.onHover(null)}>
       ${rows.map((row) => {
@@ -271,7 +303,10 @@ function renderWeeklyList(options: {
               slots: row.slots,
               mini: true,
               nowPercent: row.isToday ? nowPercent : null,
-              onSelectHour: (hour) => options.onHover({ dayIdx: fullIdx, hour }),
+              selectedHour: selectedCell?.dayIdx === fullIdx ? selectedCell.hour : null,
+              onHoverHour: (hour) => options.onHover({ dayIdx: fullIdx, hour }),
+              onSelectHour: (hour) =>
+                (options.onSelect ?? options.onHover)({ dayIdx: fullIdx, hour }),
             })}
             ${
               showIntervals && (row.hasSchedule || row.isToday)
@@ -308,7 +343,9 @@ export function renderWeeklyScheduleContent(options: {
   nowPercent: number | null;
   nowTimeBadge: string;
   hoverCell: { dayIdx: number; hour: number } | null;
+  selectedCell?: { dayIdx: number; hour: number } | null;
   onHover: (cell: { dayIdx: number; hour: number } | null) => void;
+  onSelectCell?: (cell: { dayIdx: number; hour: number }) => void;
   showReadout: boolean;
   showNowLine: boolean;
   showPossible: boolean;
@@ -329,7 +366,9 @@ export function renderWeeklyScheduleContent(options: {
     nowPercent,
     nowTimeBadge,
     hoverCell,
+    selectedCell,
     onHover,
+    onSelectCell,
     showReadout,
     showNowLine,
     showPossible,
@@ -377,8 +416,10 @@ export function renderWeeklyScheduleContent(options: {
       t,
       nowHour: effectiveNowHour,
       nowMinuteRatio: effectiveNowRatio,
+      selectedCell,
       showIntervals,
       onHover,
+      onSelect: onSelectCell,
     });
   } else if (weeklyView === "timeline_bars") {
     body = renderWeeklyBars({
@@ -389,8 +430,10 @@ export function renderWeeklyScheduleContent(options: {
       t,
       nowPercent: effectiveNowPct,
       nowTimeBadge,
+      selectedCell,
       showIntervals,
       onHover,
+      onSelect: onSelectCell,
     });
   } else if (weeklyView === "list") {
     body = renderWeeklyList({
@@ -400,8 +443,10 @@ export function renderWeeklyScheduleContent(options: {
       emptyDaysMode,
       t,
       nowPercent: effectiveNowPct,
+      selectedCell,
       showIntervals,
       onHover,
+      onSelect: onSelectCell,
     });
   } else {
     const desktopNode = preferBarsOnDesktop
@@ -413,8 +458,10 @@ export function renderWeeklyScheduleContent(options: {
           t,
           nowPercent: effectiveNowPct,
           nowTimeBadge,
+          selectedCell,
           showIntervals,
           onHover,
+          onSelect: onSelectCell,
         })
       : renderWeeklyTable({
           allRows: rows,
@@ -424,8 +471,10 @@ export function renderWeeklyScheduleContent(options: {
           t,
           nowHour: effectiveNowHour,
           nowMinuteRatio: effectiveNowRatio,
+          selectedCell,
           showIntervals,
           onHover,
+          onSelect: onSelectCell,
         });
 
     const mobileNode =
@@ -438,8 +487,10 @@ export function renderWeeklyScheduleContent(options: {
             t,
             nowPercent: effectiveNowPct,
             nowTimeBadge,
+            selectedCell,
             showIntervals,
             onHover,
+            onSelect: onSelectCell,
           })
         : renderWeeklyList({
             allRows: rows,
@@ -448,8 +499,10 @@ export function renderWeeklyScheduleContent(options: {
             emptyDaysMode,
             t,
             nowPercent: effectiveNowPct,
+            selectedCell,
             showIntervals,
             onHover,
+            onSelect: onSelectCell,
           });
 
     body = html`

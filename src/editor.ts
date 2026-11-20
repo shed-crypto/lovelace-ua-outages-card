@@ -578,6 +578,12 @@ export class UaOutagesCardEditor extends LitElement {
               onChange: (c) => this._update("show_header", c),
             })}
             ${renderCheckboxInput({
+              field: "show_title",
+              labelText: ed.showTitle,
+              checked: this._config.show_title !== false,
+              onChange: (c) => this._update("show_title", c),
+            })}
+            ${renderCheckboxInput({
               field: "show_group_badge",
               labelText: ed.showGroupBadge,
               checked: this._config.show_group_badge !== false,
@@ -845,6 +851,12 @@ export class UaOutagesWeeklyCardEditor extends LitElement {
               labelText: ed.showHeader,
               checked: this._config.show_header !== false,
               onChange: (c) => this._update("show_header", c),
+            })}
+            ${renderCheckboxInput({
+              field: "show_title",
+              labelText: ed.showTitle,
+              checked: this._config.show_title !== false,
+              onChange: (c) => this._update("show_title", c),
             })}
             ${renderCheckboxInput({
               field: "show_group_badge",

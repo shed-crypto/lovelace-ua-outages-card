@@ -6,6 +6,8 @@ export interface TranslationStrings {
   groupPrefix: string;
   today: string;
   tomorrow: string;
+  todayShort: string;
+  tomorrowShort: string;
   hoursShort: string;
   minShort: string;
   hourUnit: string;
@@ -104,6 +106,7 @@ export interface TranslationStrings {
     batteryLowThreshold: string;
     sectionVisibility: string;
     showHeader: string;
+    showTitle: string;
     showGroupBadge: string;
     showRegion: string;
     showConnection: string;
@@ -136,6 +139,8 @@ const UK: TranslationStrings = {
   groupPrefix: "Черга",
   today: "Сьогодні",
   tomorrow: "Завтра",
+  todayShort: "Сьог",
+  tomorrowShort: "Зав",
   hoursShort: "год",
   minShort: "хв",
   hourUnit: "год",
@@ -239,6 +244,7 @@ const UK: TranslationStrings = {
     batteryLowThreshold: "Поріг низького заряду (%)",
     sectionVisibility: "Елементи картки",
     showHeader: "Показувати шапку",
+    showTitle: "Показувати заголовок",
     showGroupBadge: "Показувати бейдж черги",
     showRegion: "Показувати назву регіону",
     showConnection: "Показувати статус підключення",
@@ -271,6 +277,8 @@ const EN: TranslationStrings = {
   groupPrefix: "Group",
   today: "Today",
   tomorrow: "Tomorrow",
+  todayShort: "Today",
+  tomorrowShort: "Tmrw",
   hoursShort: "h",
   minShort: "min",
   hourUnit: "h",
@@ -374,6 +382,7 @@ const EN: TranslationStrings = {
     batteryLowThreshold: "Low battery threshold (%)",
     sectionVisibility: "Visible card elements",
     showHeader: "Show header",
+    showTitle: "Show title",
     showGroupBadge: "Show group pill",
     showRegion: "Show region subtitle",
     showConnection: "Show connection status",
@@ -406,6 +415,8 @@ const RU: TranslationStrings = {
   groupPrefix: "Очередь",
   today: "Сегодня",
   tomorrow: "Завтра",
+  todayShort: "Сег",
+  tomorrowShort: "Зав",
   hoursShort: "ч",
   minShort: "мин",
   hourUnit: "ч",
@@ -509,6 +520,7 @@ const RU: TranslationStrings = {
     batteryLowThreshold: "Порог низкого заряда (%)",
     sectionVisibility: "Элементы карточки",
     showHeader: "Показывать шапку",
+    showTitle: "Показывать заголовок",
     showGroupBadge: "Показывать бейдж очереди",
     showRegion: "Показывать название региона",
     showConnection: "Показывать статус подключения",

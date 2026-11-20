@@ -438,6 +438,7 @@ describe("custom cards registration and DOM rendering", () => {
 
     for (const cb of [
       "show_header",
+      "show_title",
       "show_group_badge",
       "show_region",
       "show_connection",
@@ -483,6 +484,7 @@ describe("custom cards registration and DOM rendering", () => {
     expect(last.battery_runtime_entity).toBe("sensor.battery_runtime");
     expect(last.battery_low_threshold).toBe(15);
     expect(last.show_header).toBe(false);
+    expect(last.show_title).toBe(false);
     expect(last.show_address_alert).toBe(false);
     expect(last.show_readout).toBe(false);
     expect(last.show_today).toBe(false);
@@ -536,6 +538,7 @@ describe("custom cards registration and DOM rendering", () => {
     wInput("title").dispatchEvent(new Event("change"));
     for (const cb of [
       "show_header",
+      "show_title",
       "show_group_badge",
       "show_readout",
       "show_now_line",
@@ -872,5 +875,108 @@ describe("custom cards registration and DOM rendering", () => {
     ) as HTMLSelectElement;
     expect(rowOrderSel.value).toBe("mon_sun");
     expect(rowOrderSel.selectedIndex).toBe(0);
+  });
+
+  it("fits narrow mobile DTEK tables, supports show_title/empty title, and pins/toggles tomorrow cells", async () => {
+    const hass = makeFullHass();
+    if (hass.states["sensor.home_outages_tomorrow"]) {
+      hass.states["sensor.home_outages_tomorrow"].attributes.published = true;
+      hass.states["sensor.home_outages_tomorrow"].attributes.schedule = "0000" + "1".repeat(44);
+    }
+
+    const card = document.createElement("ua-outages-card") as UaOutagesCard;
+    card.hass = hass;
+    card.setConfig({
+      type: "custom:ua-outages-card",
+      entity: "sensor.home_outages_today",
+      style: "dtek",
+      title: "",
+      language: "uk",
+    });
+    document.body.appendChild(card);
+    await card.updateComplete;
+
+    // Explicit empty string title hides .title while keeping queue badge and connection status.
+    expect(card.shadowRoot?.querySelector(".title")).toBeNull();
+    expect(card.shadowRoot?.querySelector(".badge-group")?.textContent).toContain("3.2");
+    expect(card.shadowRoot?.querySelector(".day-lbl-short")?.textContent).toContain("Сьог");
+
+    // Clicking tomorrow cell pins readout to tomorrow; clicking again unpins back to "зараз".
+    const cells = card.shadowRoot?.querySelectorAll("button.dtek-cell") ?? [];
+    expect(cells).toHaveLength(48);
+    const tomorrowHour0 = cells[24] as HTMLButtonElement;
+    tomorrowHour0.click();
+    await card.updateComplete;
+    expect(card.shadowRoot?.querySelector(".hover-readout")?.textContent).toContain("Завтра");
+    expect(card.shadowRoot?.querySelector(".hover-readout")?.textContent).toContain("00:00–01:00");
+    expect(tomorrowHour0.classList.contains("is-selected")).toBe(true);
+
+    // Clicking again toggles selection off back to today's "зараз" readout.
+    tomorrowHour0.click();
+    await card.updateComplete;
+    expect(tomorrowHour0.classList.contains("is-selected")).toBe(false);
+    expect(card.shadowRoot?.querySelector(".hover-readout")?.textContent).toContain("(зараз)");
+
+    // Interactive tomorrow selection also works in modern and timeline styles.
+    card.setConfig({
+      type: "custom:ua-outages-card",
+      entity: "sensor.home_outages_today",
+      style: "modern",
+      modern_grid: "1x24",
+      language: "uk",
+    });
+    await card.updateComplete;
+    const modernTmrTile = card.shadowRoot?.querySelectorAll(".hour-tile")[24] as HTMLButtonElement;
+    modernTmrTile.click();
+    await card.updateComplete;
+    expect(modernTmrTile.classList.contains("is-selected")).toBe(true);
+    expect(card.shadowRoot?.querySelector(".hover-readout")?.textContent).toContain("Завтра");
+    modernTmrTile.click();
+    await card.updateComplete;
+    expect(modernTmrTile.classList.contains("is-selected")).toBe(false);
+
+    card.setConfig({
+      type: "custom:ua-outages-card",
+      entity: "sensor.home_outages_today",
+      style: "timeline",
+      language: "uk",
+    });
+    await card.updateComplete;
+    const tmrTimelineSlot = card.shadowRoot?.querySelector(
+      ".tmr-box .tl-slot",
+    ) as HTMLButtonElement;
+    tmrTimelineSlot.click();
+    await card.updateComplete;
+    expect(tmrTimelineSlot.classList.contains("is-selected")).toBe(true);
+
+    // Weekly card hides title on show_title=false, supports click-to-toggle pin, and uses short weekday labels.
+    const weekly = document.createElement("ua-outages-weekly-card") as UaOutagesWeeklyCard;
+    weekly.hass = hass;
+    weekly.setConfig({
+      type: "custom:ua-outages-weekly-card",
+      entity: "calendar.home_outages",
+      weekly_view: "table",
+      show_title: false,
+      language: "uk",
+    });
+    document.body.appendChild(weekly);
+    await weekly.updateComplete;
+
+    expect(weekly.shadowRoot?.querySelector(".title")).toBeNull();
+    expect(weekly.shadowRoot?.querySelector("table.dtek-table-weekly")).not.toBeNull();
+    expect(weekly.shadowRoot?.querySelector(".day-lbl-short")?.textContent?.trim()).toBe("Пн");
+
+    const wCell = weekly.shadowRoot?.querySelectorAll("button.dtek-cell")[3] as HTMLButtonElement;
+    wCell.click();
+    await weekly.updateComplete;
+    expect(wCell.classList.contains("is-selected")).toBe(true);
+    wCell.click();
+    await weekly.updateComplete;
+    expect(wCell.classList.contains("is-selected")).toBe(false);
+
+    // Verify container-query styles remove min-width: 420px and scale 1x24 badges for mobile.
+    const cssText = UaOutagesCard.styles.cssText;
+    expect(cssText).toContain("min-width: 0");
+    expect(cssText).toContain(".grid-1x24 .hour-badge");
   });
 });

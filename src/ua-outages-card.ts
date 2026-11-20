@@ -13,6 +13,7 @@ import {
   renderTimelineDailyBox,
   renderTimelineLegend,
   resolveActiveTheme,
+  resolveVisibleTitle,
 } from "./render-helpers";
 import {
   addDaysIso,
@@ -62,10 +63,12 @@ export class UaOutagesCard extends LitElement {
   @property({ attribute: false }) public hass?: HomeAssistant;
   @state() private _config?: UaOutagesCardConfig;
   @state() private _now: Date = new Date();
-  @state() private _hoverHour: number | null = null;
+  @state() private _hoverTarget: { day: "today" | "tomorrow"; hour: number } | null = null;
+  @state() private _pinnedTarget: { day: "today" | "tomorrow"; hour: number } | null = null;
   @state() private _activeView: ActiveScheduleView = "today";
   @state() private _weeklyEvents: CalendarApiEvent[] = [];
   @state() private _weeklyHoverCell: { dayIdx: number; hour: number } | null = null;
+  @state() private _weeklyPinnedCell: { dayIdx: number; hour: number } | null = null;
 
   private _weeklyFetchKey = "";
   private _weeklyLastFetchMs = 0;
@@ -110,6 +113,7 @@ export class UaOutagesCard extends LitElement {
       row_order: "mon_sun",
       language: "auto",
       show_header: true,
+      show_title: true,
       show_group_badge: true,
       show_connection: true,
       show_countdown: true,
@@ -119,8 +123,10 @@ export class UaOutagesCard extends LitElement {
       show_possible: true,
       ...config,
     };
-    this._hoverHour = null;
+    this._hoverTarget = null;
+    this._pinnedTarget = null;
     this._weeklyHoverCell = null;
+    this._weeklyPinnedCell = null;
     this._activeView = this._config.default_view ?? "today";
     this._weeklyFetchKey = "";
   }
@@ -349,26 +355,67 @@ export class UaOutagesCard extends LitElement {
     `;
   }
 
+  private _hoverDailyCell(day: "today" | "tomorrow", hour: number): void {
+    this._hoverTarget = { day, hour };
+  }
+
+  private _toggleDailyCell(day: "today" | "tomorrow", hour: number): void {
+    if (this._pinnedTarget?.day === day && this._pinnedTarget.hour === hour) {
+      this._pinnedTarget = null;
+      this._hoverTarget = null;
+      return;
+    }
+    this._pinnedTarget = { day, hour };
+    this._hoverTarget = { day, hour };
+  }
+
+  private _toggleWeeklyCell(cell: { dayIdx: number; hour: number }): void {
+    if (
+      this._weeklyPinnedCell?.dayIdx === cell.dayIdx &&
+      this._weeklyPinnedCell.hour === cell.hour
+    ) {
+      this._weeklyPinnedCell = null;
+      this._weeklyHoverCell = null;
+      return;
+    }
+    this._weeklyPinnedCell = cell;
+    this._weeklyHoverCell = cell;
+  }
+
   private _renderDtekTable(options: {
     t: TranslationStrings;
     today: DayScheduleData;
     tomorrow: DayScheduleData;
     nowHour: number | null;
     nowMinuteRatio: number | null;
+    selectedTodayHour: number | null;
+    selectedTomorrowHour: number | null;
     showToday: boolean;
     showTomorrow: boolean;
   }): TemplateResult | typeof nothing {
-    const { t, today, tomorrow, nowHour, nowMinuteRatio, showToday, showTomorrow } = options;
+    const {
+      t,
+      today,
+      tomorrow,
+      nowHour,
+      nowMinuteRatio,
+      selectedTodayHour,
+      selectedTomorrowHour,
+      showToday,
+      showTomorrow,
+    } = options;
     if (!showToday && !showTomorrow) return nothing;
     const hours = Array.from({ length: 24 }, (_, h) => h);
-    const onSelect = (h: number): void => {
-      this._hoverHour = h;
-    };
     const todaySlots = today.slots;
     const tomorrowSlots = tomorrow.published ? tomorrow.slots : null;
 
     return html`
-      <div class="table-scroll" @mouseleave=${() => (this._hoverHour = null)}>
+      <div
+        class="table-scroll"
+        @mouseleave=${() => {
+          this._hoverTarget = null;
+        }}
+      >
         <table class="dtek-table">
           ${renderDtekHeaderRow(t.hoursHeader, nowHour)}
           <tbody>
@@ -377,7 +424,12 @@ export class UaOutagesCard extends LitElement {
                 ? html`
                     <tr class="is-today-row">
                       <td class="dtek-day-cell today-highlight">
-                        ${t.today} ${formatDateShort(today.dateIso)}
+                        <span class="day-lbl-full"
+                          >${t.today} ${formatDateShort(today.dateIso)}</span
+                        >
+                        <span class="day-lbl-short"
+                          >${t.todayShort} ${formatDateShort(today.dateIso)}</span
+                        >
                       </td>
                       ${
                         todaySlots
@@ -387,9 +439,11 @@ export class UaOutagesCard extends LitElement {
                                 hour: h,
                                 isNowCol: nowHour !== null && h === nowHour,
                                 isNowHour: nowHour !== null && h === nowHour,
+                                isSelected: selectedTodayHour === h,
                                 nowMinuteRatio:
                                   nowHour !== null && h === nowHour ? nowMinuteRatio : null,
-                                onSelect,
+                                onHover: (hour) => this._hoverDailyCell("today", hour),
+                                onSelect: (hour) => this._toggleDailyCell("today", hour),
                               }),
                             )
                           : html`<td class="dtek-empty-row" colspan="24">${t.noSchedule}</td>`
@@ -403,7 +457,12 @@ export class UaOutagesCard extends LitElement {
                 ? html`
                     <tr>
                       <td class="dtek-day-cell">
-                        ${t.tomorrow} ${formatDateShort(tomorrow.dateIso)}
+                        <span class="day-lbl-full"
+                          >${t.tomorrow} ${formatDateShort(tomorrow.dateIso)}</span
+                        >
+                        <span class="day-lbl-short"
+                          >${t.tomorrowShort} ${formatDateShort(tomorrow.dateIso)}</span
+                        >
                       </td>
                       ${
                         tomorrowSlots
@@ -413,6 +472,9 @@ export class UaOutagesCard extends LitElement {
                                 hour: h,
                                 isNowCol: nowHour !== null && h === nowHour,
                                 isNowHour: false,
+                                isSelected: selectedTomorrowHour === h,
+                                onHover: (hour) => this._hoverDailyCell("tomorrow", hour),
+                                onSelect: (hour) => this._toggleDailyCell("tomorrow", hour),
                               }),
                             )
                           : html`<td class="dtek-empty-row" colspan="24">${t.noTomorrow}</td>`
@@ -431,8 +493,12 @@ export class UaOutagesCard extends LitElement {
     slots: readonly SlotState[];
     gridMode: ModernGridMode;
     nowSlot: number;
+    selectedHour?: number | null;
     mini?: boolean;
     interactive?: boolean;
+    onHover?: (hour: number) => void;
+    onSelect?: (hour: number) => void;
+    onLeave?: () => void;
   }): TemplateResult {
     const hours = Array.from({ length: 24 }, (_, h) => h);
     const nowHour = options.nowSlot >= 0 ? Math.floor(options.nowSlot / 2) : -1;
@@ -444,24 +510,25 @@ export class UaOutagesCard extends LitElement {
       <div
         class=${options.gridMode === "1x24" ? "grid-1x24" : "grid-2x12"}
         @mouseleave=${() => {
-          if (options.interactive) this._hoverHour = null;
+          if (options.interactive) options.onLeave?.();
         }}
       >
         ${hours.map((h) => {
           const s1 = options.slots[h * 2] ?? "1";
           const s2 = options.slots[h * 2 + 1] ?? "1";
           const isNow = h === nowHour;
+          const isSelected = options.selectedHour === h;
           const label = options.gridMode === "1x24" ? String(h) : pad2(h);
           return html`
             <button
               type="button"
-              class="hour-tile ${options.mini ? "mini" : ""} ${isNow ? "is-now" : ""}"
+              class="hour-tile ${options.mini ? "mini" : ""} ${isNow ? "is-now" : ""} ${isSelected ? "is-selected" : ""}"
               aria-label="${pad2(h)}:00-${pad2(h + 1)}:00"
               @mouseenter=${() => {
-                if (options.interactive) this._hoverHour = h;
+                if (options.interactive) options.onHover?.(h);
               }}
               @click=${() => {
-                if (options.interactive) this._hoverHour = h;
+                if (options.interactive) options.onSelect?.(h);
               }}
             >
               <span
@@ -527,8 +594,9 @@ export class UaOutagesCard extends LitElement {
     tomorrow: DayScheduleData;
     gridMode: ModernGridMode;
     showChips: boolean;
+    selectedHour: number | null;
   }): TemplateResult {
-    const { t, style, tomorrow, gridMode, showChips } = options;
+    const { t, style, tomorrow, gridMode, showChips, selectedHour } = options;
     return html`
       <div class="tmr-box">
         <div class="readout-row">
@@ -542,12 +610,28 @@ export class UaOutagesCard extends LitElement {
             ? html`
                 ${
                   style === "timeline"
-                    ? renderTimelineDailyBox({ slots: tomorrow.slots, mini: true })
+                    ? renderTimelineDailyBox({
+                        slots: tomorrow.slots,
+                        mini: true,
+                        selectedHour,
+                        onHoverHour: (h) => this._hoverDailyCell("tomorrow", h),
+                        onSelectHour: (h) => this._toggleDailyCell("tomorrow", h),
+                        onLeave: () => {
+                          this._hoverTarget = null;
+                        },
+                      })
                     : this._renderModernTileGrid({
                         slots: tomorrow.slots,
                         gridMode,
                         nowSlot: -1,
+                        selectedHour,
                         mini: true,
+                        interactive: true,
+                        onHover: (h) => this._hoverDailyCell("tomorrow", h),
+                        onSelect: (h) => this._toggleDailyCell("tomorrow", h),
+                        onLeave: () => {
+                          this._hoverTarget = null;
+                        },
                       })
                 }
                 ${showChips ? renderIntervalChips(tomorrow.slots, t, true) : nothing}
@@ -647,29 +731,44 @@ export class UaOutagesCard extends LitElement {
       groupEntity && groupEntity.state !== "unknown" && groupEntity.state !== "unavailable"
         ? groupEntity.state
         : null;
-    const title =
-      cfg.title ||
+    const title = resolveVisibleTitle(cfg.title, cfg.show_title, () =>
       cleanAutoTitle({
         friendlyName: todayEntity?.attributes.friendly_name,
         fallbackTitle: t.cardDefaultTitle,
         groupVal,
         showGroupBadge,
-      });
+      }),
+    );
     const regionStr =
       typeof groupEntity?.attributes.region === "string" ? groupEntity.attributes.region : "";
+    const hasHeaderLeft =
+      Boolean(title) || (showGroupBadge && Boolean(groupVal)) || (showRegion && Boolean(regionStr));
 
     const minuteInfo = getMinuteOfDay(this._now, timeZone);
     const nowTimeBadge = `${t.nowTag.toUpperCase()} ${pad2(minuteInfo.hour)}:${pad2(minuteInfo.minute)}`;
     const nowHour = Math.floor(nowSlot / 2);
-    const activeHour = this._hoverHour ?? nowHour;
-    const readout = today.slots
-      ? formatHourReadout({
-          slots: today.slots,
-          hour: activeHour,
-          lang,
-          tag: activeHour === nowHour ? t.nowTag : undefined,
-        })
-      : "";
+    const activeTarget = this._hoverTarget ?? this._pinnedTarget;
+    const selectedTodayHour = this._pinnedTarget?.day === "today" ? this._pinnedTarget.hour : null;
+    const selectedTomorrowHour =
+      this._pinnedTarget?.day === "tomorrow" ? this._pinnedTarget.hour : null;
+
+    let readout = "";
+    if (activeTarget?.day === "tomorrow" && tomorrow.published && tomorrow.slots) {
+      readout = formatHourReadout({
+        slots: tomorrow.slots,
+        hour: activeTarget.hour,
+        lang,
+        prefix: t.tomorrow,
+      });
+    } else if (today.slots) {
+      const hour = activeTarget?.day === "today" ? activeTarget.hour : nowHour;
+      readout = formatHourReadout({
+        slots: today.slots,
+        hour,
+        lang,
+        tag: hour === nowHour ? t.nowTag : undefined,
+      });
+    }
 
     const summaryText = today.outagesText
       ? `${t.today}: ${today.outagesText} (${today.outageHours.toFixed(1)} ${t.hourUnit})`
@@ -700,22 +799,39 @@ export class UaOutagesCard extends LitElement {
       <ha-card>
         <div class="wrap">
           ${
-            showHeader
+            showHeader && (hasHeaderLeft || viewMode === "switchable" || showConnection)
               ? html`
                   <div class="header">
-                    <div class="header-left">
-                      <div class="header-title-row">
-                        <span class="title">${title}</span>
-                        ${
-                          showGroupBadge && groupVal
-                            ? html`<span class="badge-group ${useYellowPill ? "dtek-pill" : ""}"
-                                >${t.groupPrefix} ${groupVal}</span
-                              >`
-                            : nothing
-                        }
-                      </div>
-                      ${showRegion && regionStr ? html`<span class="region">${regionStr}</span>` : nothing}
-                    </div>
+                    ${
+                      hasHeaderLeft
+                        ? html`
+                            <div class="header-left">
+                              ${
+                                title || (showGroupBadge && groupVal)
+                                  ? html`
+                                      <div class="header-title-row">
+                                        ${title ? html`<span class="title">${title}</span>` : nothing}
+                                        ${
+                                          showGroupBadge && groupVal
+                                            ? html`<span
+                                                class="badge-group ${useYellowPill ? "dtek-pill" : ""}"
+                                                >${t.groupPrefix} ${groupVal}</span
+                                              >`
+                                            : nothing
+                                        }
+                                      </div>
+                                    `
+                                  : nothing
+                              }
+                              ${
+                                showRegion && regionStr
+                                  ? html`<span class="region">${regionStr}</span>`
+                                  : nothing
+                              }
+                            </div>
+                          `
+                        : nothing
+                    }
                     <div class="header-right">
                       ${
                         viewMode === "switchable"
@@ -794,6 +910,8 @@ export class UaOutagesCard extends LitElement {
                           tomorrow,
                           nowHour: showNowLine ? nowHour : null,
                           nowMinuteRatio: showNowLine ? minuteInfo.minute / 60 : null,
+                          selectedTodayHour,
+                          selectedTomorrowHour,
                           showToday,
                           showTomorrow,
                         })
@@ -809,18 +927,24 @@ export class UaOutagesCard extends LitElement {
                                             nowPercent: showNowLine ? minuteInfo.percent : null,
                                             nowTimeLabel: nowTimeBadge,
                                             showNowBadge: showNowLine,
-                                            onSelectHour: (h) => {
-                                              this._hoverHour = h;
-                                            },
+                                            selectedHour: selectedTodayHour,
+                                            onHoverHour: (h) => this._hoverDailyCell("today", h),
+                                            onSelectHour: (h) => this._toggleDailyCell("today", h),
                                             onLeave: () => {
-                                              this._hoverHour = null;
+                                              this._hoverTarget = null;
                                             },
                                           })
                                         : this._renderModernTileGrid({
                                             slots: today.slots,
                                             gridMode: cfg.modern_grid ?? "2x12",
                                             nowSlot: showNowLine ? nowSlot : -1,
+                                            selectedHour: selectedTodayHour,
                                             interactive: true,
+                                            onHover: (h) => this._hoverDailyCell("today", h),
+                                            onSelect: (h) => this._toggleDailyCell("today", h),
+                                            onLeave: () => {
+                                              this._hoverTarget = null;
+                                            },
                                           })
                                       : html`<div class="tmr-unpublished">${t.noSchedule}</div>`
                                   }
@@ -840,6 +964,7 @@ export class UaOutagesCard extends LitElement {
                                   tomorrow,
                                   gridMode: cfg.modern_grid ?? "2x12",
                                   showChips,
+                                  selectedHour: selectedTomorrowHour,
                                 })
                               : nothing
                           }
@@ -907,10 +1032,12 @@ export class UaOutagesCard extends LitElement {
                       nowMinuteRatio: minuteInfo.minute / 60,
                       nowPercent: minuteInfo.percent,
                       nowTimeBadge,
-                      hoverCell: this._weeklyHoverCell,
+                      hoverCell: this._weeklyHoverCell ?? this._weeklyPinnedCell,
+                      selectedCell: this._weeklyPinnedCell,
                       onHover: (cell) => {
                         this._weeklyHoverCell = cell;
                       },
+                      onSelectCell: (cell) => this._toggleWeeklyCell(cell),
                       showReadout,
                       showNowLine,
                       showPossible,

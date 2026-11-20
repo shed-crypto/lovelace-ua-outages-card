@@ -71,6 +71,7 @@ empty_days_mode: auto # auto | compact_empty | hide_unscheduled | show_all
 row_order: mon_sun # mon_sun | rolling
 language: auto # auto | uk | en | ru
 show_header: true
+show_title: true # or set title: "" to hide card title while keeping badge/status
 show_group_badge: true
 show_region: true
 show_connection: true
@@ -105,6 +106,7 @@ empty_days_mode: auto # auto | compact_empty | hide_unscheduled | show_all
 row_order: mon_sun # mon_sun | rolling
 language: auto # auto | uk | en | ru
 show_header: true
+show_title: true # or set title: "" to hide card title while keeping badge/status
 show_group_badge: true
 show_readout: true
 show_now_line: true

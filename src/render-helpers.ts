@@ -30,6 +30,17 @@ export function dtekHalfBackground(ch: SlotState, highlightRow: boolean): string
   return highlightRow ? "var(--ua-today-on-bg)" : "var(--ua-bg)";
 }
 
+export function resolveVisibleTitle(
+  rawTitle: string | undefined,
+  showTitle: boolean | undefined,
+  resolveAuto: () => string,
+): string | null {
+  if (showTitle === false || (rawTitle !== undefined && !rawTitle.trim())) {
+    return null;
+  }
+  return rawTitle?.trim() || resolveAuto();
+}
+
 export function cleanAutoTitle(options: {
   friendlyName: unknown;
   fallbackTitle: string;
@@ -80,9 +91,11 @@ export function renderDtekHourCell(options: {
   hour: number;
   isNowHour: boolean;
   isNowCol?: boolean;
+  isSelected?: boolean;
   nowMinuteRatio?: number | null;
   highlightRow?: boolean;
   compactRow?: boolean;
+  onHover?: (hour: number) => void;
   onSelect?: (hour: number) => void;
 }): TemplateResult {
   const s1: SlotState = options.slots[options.hour * 2] ?? "1";
@@ -106,9 +119,9 @@ export function renderDtekHourCell(options: {
     <td class=${options.isNowCol ? "is-now-col" : ""}>
       <button
         type="button"
-        class="dtek-cell ${options.isNowHour ? "is-now" : ""} ${options.compactRow ? "compact-row" : ""}"
+        class="dtek-cell ${options.isNowHour ? "is-now" : ""} ${options.isSelected ? "is-selected" : ""} ${options.compactRow ? "compact-row" : ""}"
         aria-label="${pad2(options.hour)}:00-${pad2(options.hour + 1)}:00"
-        @mouseenter=${() => options.onSelect?.(options.hour)}
+        @mouseenter=${() => (options.onHover ?? options.onSelect)?.(options.hour)}
         @click=${() => options.onSelect?.(options.hour)}
       >
         <span class="dtek-cell-bg">
@@ -210,6 +223,8 @@ export function renderTimelineTrack(options: {
   slots: readonly SlotState[];
   mini?: boolean;
   nowPercent?: number | null;
+  selectedHour?: number | null;
+  onHoverHour?: (hour: number) => void;
   onSelectHour?: (hour: number) => void;
 }): TemplateResult {
   const slots = options.slots;
@@ -225,15 +240,19 @@ export function renderTimelineTrack(options: {
           const ch: SlotState = slots[idx] ?? "1";
           const hour = Math.floor(idx / 2);
           const isHourEnd = idx % 2 === 1 && idx < 47;
+          const isSelected =
+            options.selectedHour !== undefined &&
+            options.selectedHour !== null &&
+            hour === options.selectedHour;
           const startStr = `${pad2(hour)}:${idx % 2 === 0 ? "00" : "30"}`;
           const endHour = idx % 2 === 0 ? hour : hour + 1;
           const endMin = idx % 2 === 0 ? "30" : "00";
           return html`
             <button
               type="button"
-              class="tl-slot ${timelineSlotClass(ch)} ${isHourEnd ? "hour-end" : ""}"
+              class="tl-slot ${timelineSlotClass(ch)} ${isHourEnd ? "hour-end" : ""} ${isSelected ? "is-selected" : ""}"
               aria-label="${startStr}-${pad2(endHour)}:${endMin}"
-              @mouseenter=${() => options.onSelectHour?.(hour)}
+              @mouseenter=${() => (options.onHoverHour ?? options.onSelectHour)?.(hour)}
               @click=${() => options.onSelectHour?.(hour)}
             ></button>
           `;
@@ -250,6 +269,8 @@ export function renderTimelineDailyBox(options: {
   nowTimeLabel?: string;
   showNowBadge?: boolean;
   mini?: boolean;
+  selectedHour?: number | null;
+  onHoverHour?: (hour: number) => void;
   onSelectHour?: (hour: number) => void;
   onLeave?: () => void;
 }): TemplateResult {
@@ -275,6 +296,8 @@ export function renderTimelineDailyBox(options: {
         slots: options.slots,
         mini: options.mini,
         nowPercent: nowPct,
+        selectedHour: options.selectedHour,
+        onHoverHour: options.onHoverHour,
         onSelectHour: options.onSelectHour,
       })}
     </div>
